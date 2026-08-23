@@ -82,9 +82,47 @@ main {
   cursor: pointer;
 }
 
-.cochlea-focus-placeholder {
-  color: var(--text-muted);
+.cochlea-focus-heading {
+  margin: 0 0 0.75rem;
+  font-size: 1.375rem;
+}
+
+.cochlea-focus-copy {
   max-width: 34rem;
+  color: var(--text-muted);
+}
+
+/* Desktop: outer-hair-cell cutaway on the left, coiled frequency map on the
+   right, the map slightly wider --- but the coiled map stays first in the DOM
+   so mobile's required "map, then cells" reading order falls out of normal
+   document flow. Explicit grid-column placement (not `order`) keeps assistive
+   technology and keyboard reading order matching the DOM regardless of the
+   visual swap. */
+.cochlea-focus-art {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap: 1rem;
+  margin: 1.25rem 0;
+}
+
+.cochlea-focus-art [data-testid="coiled-map-illustration"] {
+  grid-column: 2;
+}
+
+.cochlea-focus-art [data-testid="ohc-illustration"] {
+  grid-column: 1;
+}
+
+.cochlea-focus-illustration {
+  overflow: hidden;
+  border-radius: 0.75rem;
+  background: var(--ear-hero-bg);
+}
+
+.cochlea-focus-illustration svg {
+  display: block;
+  width: 100%;
+  height: auto;
 }
 
 /* Orientation screen composition (CLAUDE.md: "Guided orientation" -> first
@@ -891,6 +929,15 @@ a {
 
   .orientation-composition {
     grid-template-columns: 1fr;
+  }
+
+  .cochlea-focus-art {
+    grid-template-columns: 1fr;
+  }
+
+  .cochlea-focus-art [data-testid="coiled-map-illustration"],
+  .cochlea-focus-art [data-testid="ohc-illustration"] {
+    grid-column: 1;
   }
 
   .cochlea-hotspot {

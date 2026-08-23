@@ -1,0 +1,143 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1440 900" role="img" aria-labelledby="coiled-title coiled-desc">
+  <title id="coiled-title">Schematic coiled cochlear frequency map</title>
+  <desc id="coiled-desc">An original diagram showing sound entering the cochlear base, where high frequencies peak, and travelling around the spiral toward the apex, where low frequencies peak. Approximate sound anchors label positions along the path.</desc>
+  <defs>
+    <linearGradient id="coiled-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07131e"/>
+      <stop offset="0.55" stop-color="#0b1b2a"/>
+      <stop offset="1" stop-color="#10152a"/>
+    </linearGradient>
+    <radialGradient id="coiled-ambient" cx="58%" cy="50%" r="58%">
+      <stop offset="0" stop-color="#2e6c7d" stop-opacity=".28"/>
+      <stop offset=".6" stop-color="#162b43" stop-opacity=".12"/>
+      <stop offset="1" stop-color="#07131e" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="coiled-frequency" x1="160" y1="495" x2="900" y2="475" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f7c56d"/>
+      <stop offset=".18" stop-color="#ff9d73"/>
+      <stop offset=".38" stop-color="#f277c6"/>
+      <stop offset=".6" stop-color="#9a85ff"/>
+      <stop offset=".8" stop-color="#54c9e8"/>
+      <stop offset="1" stop-color="#61e2ca"/>
+    </linearGradient>
+    <linearGradient id="coiled-glass" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#c5f4ff" stop-opacity=".21"/>
+      <stop offset=".52" stop-color="#6ebbc9" stop-opacity=".08"/>
+      <stop offset="1" stop-color="#15283b" stop-opacity=".25"/>
+    </linearGradient>
+    <filter id="coiled-softGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="10" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="coiled-dotGlow" x="-200%" y="-200%" width="400%" height="400%">
+      <feGaussianBlur stdDeviation="5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <marker id="coiled-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M1 1 9 5 1 9Z" fill="#b8f4ff"/>
+    </marker>
+    <path id="coiled-spiral" d="M168 525 C275 510 337 466 410 376 C540 216 774 175 987 261 C1161 332 1238 513 1145 674 C1050 838 783 820 621 688 C476 570 505 371 660 291 C807 214 1012 282 1067 415 C1122 549 1000 681 859 682 C710 684 623 581 652 458 C679 343 819 298 919 354 C1012 407 1000 529 912 574 C824 619 735 557 748 473 C757 412 824 388 870 420 C912 450 906 504 868 523 C836 539 801 518 804 484"/>
+    <clipPath id="coiled-shellClip"><use xlink:href="#coiled-spiral" fill="none" stroke="#fff" stroke-width="112" stroke-linecap="round" stroke-linejoin="round"/></clipPath>
+  </defs>
+
+  <rect width="1440" height="900" rx="34" fill="url(#coiled-bg)"/>
+  <rect width="1440" height="900" rx="34" fill="url(#coiled-ambient)"/>
+  <g opacity=".11" stroke="#a9d9e4" stroke-width="1">
+    <path d="M64 164H1376M64 740H1376"/>
+    <path d="M104 104V796M1336 104V796"/>
+  </g>
+
+  <g id="coiled-heading" font-family="Inter, ui-sans-serif, system-ui, sans-serif">
+    <text x="76" y="86" fill="#8edeea" font-size="17" font-weight="700" letter-spacing="3.6">SCHEMATIC · NOT TO SCALE</text>
+    <text x="76" y="136" fill="#f3f7fa" font-size="36" font-weight="650">A frequency map, coiled inside the ear</text>
+    <text x="76" y="171" fill="#9db4c3" font-size="18">Different frequencies produce their strongest response at different places along the cochlea.</text>
+  </g>
+
+  <g id="coiled-cochlea-shell">
+    <use xlink:href="#coiled-spiral" fill="none" stroke="#24445c" stroke-opacity=".55" stroke-width="130" stroke-linecap="round" stroke-linejoin="round"/>
+    <use xlink:href="#coiled-spiral" fill="none" stroke="url(#coiled-glass)" stroke-width="112" stroke-linecap="round" stroke-linejoin="round"/>
+    <g clip-path="url(#coiled-shellClip)" opacity=".16" stroke="#c9f8ff" stroke-width="2">
+      <path d="M105 247 1215 763M133 210 1243 726M160 180 1270 696M190 151 1300 667"/>
+    </g>
+    <use xlink:href="#coiled-spiral" fill="none" stroke="url(#coiled-frequency)" stroke-width="25" stroke-linecap="round" stroke-linejoin="round" filter="url(#coiled-softGlow)"/>
+    <use xlink:href="#coiled-spiral" fill="none" stroke="#eefcff" stroke-opacity=".8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <g id="coiled-energy-direction" font-family="Inter, ui-sans-serif, system-ui, sans-serif">
+    <path d="M178 496 C280 477 335 434 400 351" fill="none" stroke="#b8f4ff" stroke-width="3" stroke-dasharray="8 10" marker-end="url(#coiled-arrow)" opacity=".92"/>
+    <text x="174" y="348" fill="#d7f8ff" font-size="16" font-weight="650">Energy travels toward the apex</text>
+  </g>
+
+  <g id="coiled-base-label" font-family="Inter, ui-sans-serif, system-ui, sans-serif">
+    <circle cx="168" cy="525" r="10" fill="#ffd37d" filter="url(#coiled-dotGlow)"/>
+    <path d="M159 548 126 586" stroke="#ffd37d" stroke-width="2"/>
+    <text x="76" y="611" fill="#ffd98c" font-size="18" font-weight="750">BASE</text>
+    <text x="76" y="635" fill="#d9e7ee" font-size="15">entrance · higher frequencies</text>
+  </g>
+
+  <g id="coiled-apex-label" font-family="Inter, ui-sans-serif, system-ui, sans-serif">
+    <circle cx="804" cy="484" r="10" fill="#74ead5" filter="url(#coiled-dotGlow)"/>
+    <path d="M795 496 750 540" stroke="#74ead5" stroke-width="2"/>
+    <rect x="626" y="536" width="180" height="58" rx="14" fill="#091722" fill-opacity=".9" stroke="#66d9ca" stroke-opacity=".45"/>
+    <text x="646" y="560" fill="#7ff0dc" font-size="17" font-weight="750">APEX</text>
+    <text x="646" y="581" fill="#d9e7ee" font-size="14">lower frequencies</text>
+  </g>
+
+  <g id="coiled-frequency-8000" data-frequency="8000" font-family="Inter, ui-sans-serif, system-ui, sans-serif">
+    <circle cx="282" cy="478" r="7" fill="#ffc979" stroke="#fff5dd" stroke-width="2"/>
+    <path d="M282 467V290H380" fill="none" stroke="#ffc979" stroke-width="1.6" opacity=".8"/>
+    <rect x="196" y="222" width="247" height="68" rx="15" fill="#0d1b27" stroke="#f4be70" stroke-opacity=".5"/>
+    <text x="216" y="248" fill="#ffc979" font-size="17" font-weight="750">8 kHz</text>
+    <text x="216" y="273" fill="#e4edf2" font-size="15">Sibilants &amp; musical brightness</text>
+  </g>
+
+  <g id="coiled-frequency-3000" data-frequency="3000" font-family="Inter, ui-sans-serif, system-ui, sans-serif">
+    <circle cx="504" cy="286" r="7" fill="#ff8ba2" stroke="#fff0f3" stroke-width="2"/>
+    <path d="M504 275V218" stroke="#ff8ba2" stroke-width="1.6" opacity=".8"/>
+    <rect x="454" y="190" width="276" height="55" rx="14" fill="#0d1b27" stroke="#ff8ba2" stroke-opacity=".46"/>
+    <text x="474" y="213" fill="#ff9cac" font-size="16" font-weight="750">3 kHz</text>
+    <text x="534" y="213" fill="#e4edf2" font-size="14">Many consonant clarity cues</text>
+  </g>
+
+  <g id="coiled-frequency-1000" data-frequency="1000" font-family="Inter, ui-sans-serif, system-ui, sans-serif">
+    <circle cx="1018" cy="275" r="7" fill="#ba83f2" stroke="#f5eaff" stroke-width="2"/>
+    <path d="M1024 267 1080 214" stroke="#ba83f2" stroke-width="1.6" opacity=".8"/>
+    <rect x="1062" y="163" width="294" height="58" rx="14" fill="#0d1b27" stroke="#b98df6" stroke-opacity=".46"/>
+    <text x="1082" y="188" fill="#c9a5ff" font-size="16" font-weight="750">1 kHz</text>
+    <text x="1142" y="188" fill="#e4edf2" font-size="14">Speech information</text>
+    <text x="1082" y="207" fill="#8fa8b7" font-size="12.5">an important region, not a boundary</text>
+  </g>
+
+  <g id="coiled-frequency-500" data-frequency="500" font-family="Inter, ui-sans-serif, system-ui, sans-serif">
+    <circle cx="1129" cy="645" r="7" fill="#6db9ef" stroke="#eef9ff" stroke-width="2"/>
+    <path d="M1137 652 1190 699" stroke="#6db9ef" stroke-width="1.6" opacity=".8"/>
+    <rect x="1113" y="698" width="254" height="60" rx="14" fill="#0d1b27" stroke="#6db9ef" stroke-opacity=".46"/>
+    <text x="1133" y="722" fill="#82c9f6" font-size="16" font-weight="750">500 Hz</text>
+    <text x="1202" y="722" fill="#e4edf2" font-size="14">Vowels &amp; voices</text>
+    <text x="1133" y="743" fill="#8fa8b7" font-size="12.5">much of their acoustic body</text>
+  </g>
+
+  <g id="coiled-frequency-262" data-frequency="262" font-family="Inter, ui-sans-serif, system-ui, sans-serif">
+    <circle cx="720" cy="665" r="7" fill="#5ed6dc" stroke="#eeffff" stroke-width="2"/>
+    <path d="M716 674 690 734" stroke="#5ed6dc" stroke-width="1.6" opacity=".8"/>
+    <rect x="477" y="731" width="260" height="57" rx="14" fill="#0d1b27" stroke="#5ed6dc" stroke-opacity=".46"/>
+    <text x="497" y="755" fill="#75e7ea" font-size="16" font-weight="750">262 Hz</text>
+    <text x="570" y="755" fill="#e4edf2" font-size="14">Around middle C</text>
+    <text x="497" y="776" fill="#8fa8b7" font-size="12.5">on a piano</text>
+  </g>
+
+  <g id="coiled-frequency-160" data-frequency="160" font-family="Inter, ui-sans-serif, system-ui, sans-serif">
+    <circle cx="769" cy="437" r="7" fill="#69e0c8" stroke="#edfff9" stroke-width="2"/>
+    <path d="M758 434 548 426" stroke="#69e0c8" stroke-width="1.6" opacity=".8"/>
+    <rect x="259" y="394" width="291" height="68" rx="15" fill="#0d1b27" stroke="#69e0c8" stroke-opacity=".46"/>
+    <text x="279" y="420" fill="#7becd5" font-size="16" font-weight="750">160 Hz</text>
+    <text x="279" y="444" fill="#e4edf2" font-size="14">Around the pitch of a low</text>
+    <text x="279" y="462" fill="#e4edf2" font-size="14">speaking voice</text>
+  </g>
+
+  <g id="coiled-legend" font-family="Inter, ui-sans-serif, system-ui, sans-serif">
+    <rect x="76" y="812" width="1288" height="48" rx="15" fill="#07121c" stroke="#7fa8bc" stroke-opacity=".2"/>
+    <text x="96" y="842" fill="#9fb8c6" font-size="14">Position and everyday-sound labels are approximate context—not strict frequency categories.</text>
+    <text x="1286" y="842" text-anchor="end" fill="#6f8b9b" font-size="12">Greenwood frequency–place relation</text>
+  </g>
+</svg>

@@ -358,6 +358,193 @@ describe("Assignment 1: Hearing Is a Map, Not a Volume Knob", () => {
     });
   });
 
+  describe("Cochlea focus: inline SVG schematics", () => {
+    function enterCochleaFocus(): void {
+      clickButton("explore-cochlea");
+    }
+
+    it("does not expose the illustrations before cochlea-focus is entered", async () => {
+      vi.resetModules();
+      await import("../main");
+
+      const panel = document.querySelector<HTMLElement>('[data-testid="cochlea-focus-panel"]');
+      expect(panel, 'expected a [data-testid="cochlea-focus-panel"] element').not.toBeNull();
+      expect(panel!.hidden).toBe(true);
+
+      const art = panel!.querySelector('[data-testid="cochlea-focus-art"]');
+      expect(art, 'expected a [data-testid="cochlea-focus-art"] element').not.toBeNull();
+      expect(art!.closest("[hidden]")).toBe(panel);
+    });
+
+    it("contains exactly two inline SVG illustrations, never img/iframe/object", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterCochleaFocus();
+
+      const art = document.querySelector('[data-testid="cochlea-focus-art"]');
+      expect(art, 'expected a [data-testid="cochlea-focus-art"] element').not.toBeNull();
+
+      const svgs = art!.querySelectorAll("svg");
+      expect(svgs.length).toBe(2);
+
+      expect(art!.querySelectorAll("img, iframe, object").length).toBe(0);
+    });
+
+    it("both illustrations have accessible titles and descriptions", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterCochleaFocus();
+
+      const svgs = Array.from(document.querySelectorAll('[data-testid="cochlea-focus-art"] svg'));
+      expect(svgs.length).toBe(2);
+
+      for (const svg of svgs) {
+        const labelledBy = svg.getAttribute("aria-labelledby") ?? "";
+        const ids = labelledBy.split(/\s+/).filter(Boolean);
+        expect(ids.length).toBeGreaterThanOrEqual(2);
+        for (const id of ids) {
+          const referenced = document.getElementById(id);
+          expect(referenced, `expected an element with id="${id}"`).not.toBeNull();
+          expect(referenced!.textContent?.trim().length).toBeGreaterThan(0);
+        }
+      }
+    });
+
+    it("both illustrations carry a visible schematic/not-to-scale indication", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterCochleaFocus();
+
+      const svgs = Array.from(document.querySelectorAll('[data-testid="cochlea-focus-art"] svg'));
+      expect(svgs.length).toBe(2);
+
+      for (const svg of svgs) {
+        expect(svg.textContent).toMatch(/SCHEMATIC/i);
+        expect(svg.textContent).toMatch(/NOT TO SCALE/i);
+      }
+    });
+
+    it("every rendered DOM id is unique", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterCochleaFocus();
+
+      const ids = Array.from(document.querySelectorAll("[id]")).map((el) => el.id);
+      expect(new Set(ids).size).toBe(ids.length);
+    });
+
+    it("the coiled map retains its data-frequency nodes", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterCochleaFocus();
+
+      const nodes = Array.from(
+        document.querySelectorAll('[data-testid="coiled-map-illustration"] [data-frequency]'),
+      );
+      const values = nodes.map((node) => node.getAttribute("data-frequency"));
+      expect(values.sort((a, b) => Number(b) - Number(a))).toEqual([
+        "8000",
+        "3000",
+        "1000",
+        "500",
+        "262",
+        "160",
+      ]);
+    });
+
+    it("labels the base as higher-frequency and the apex as lower-frequency", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterCochleaFocus();
+
+      const coiled = document.querySelector('[data-testid="coiled-map-illustration"] svg');
+      expect(coiled, "expected the coiled map svg").not.toBeNull();
+
+      const baseGroup = coiled!.querySelector('[id$="base-label"]');
+      const apexGroup = coiled!.querySelector('[id$="apex-label"]');
+      expect(baseGroup, "expected a base-label group").not.toBeNull();
+      expect(apexGroup, "expected an apex-label group").not.toBeNull();
+      expect(baseGroup!.textContent).toMatch(/higher frequencies/i);
+      expect(apexGroup!.textContent).toMatch(/lower frequencies/i);
+    });
+
+    it('keeps the exact "low speaking voice" contextual label', async () => {
+      vi.resetModules();
+      await import("../main");
+      enterCochleaFocus();
+
+      const coiled = document.querySelector('[data-testid="coiled-map-illustration"] svg');
+      expect(coiled, "expected the coiled map svg").not.toBeNull();
+      expect(coiled!.textContent).toContain("Around the pitch of a low");
+      expect(coiled!.textContent).toContain("speaking voice");
+    });
+
+    it("represents three outer-hair-cell rows", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterCochleaFocus();
+
+      const ohc = document.querySelector('[data-testid="ohc-illustration"] svg');
+      expect(ohc, "expected the outer-hair-cell svg").not.toBeNull();
+
+      const rows = ohc!.querySelectorAll('[id$="row-1"], [id$="row-2"], [id$="row-3"]');
+      expect(rows.length).toBe(3);
+    });
+
+    it("cites Greenwood (1990) and Ashmore (2019) with meaningful link text", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterCochleaFocus();
+
+      const panel = document.querySelector<HTMLElement>('[data-testid="cochlea-focus-panel"]');
+      expect(panel, 'expected a [data-testid="cochlea-focus-panel"] element').not.toBeNull();
+
+      const greenwood = panel!.querySelector<HTMLAnchorElement>(
+        'a[href="https://doi.org/10.1121/1.399052"]',
+      );
+      const ashmore = panel!.querySelector<HTMLAnchorElement>(
+        'a[href="https://doi.org/10.1101/cshperspect.a033522"]',
+      );
+      expect(greenwood, "expected a Greenwood (1990) citation link").not.toBeNull();
+      expect(ashmore, "expected an Ashmore (2019) citation link").not.toBeNull();
+      expect(greenwood!.textContent?.trim().length).toBeGreaterThan(0);
+      expect(ashmore!.textContent?.trim().length).toBeGreaterThan(0);
+    });
+
+    it('"Unfold the cochlea" still enters find and preserves frequency without starting audio', async () => {
+      vi.resetModules();
+      await import("../main");
+
+      const control = document.querySelector<HTMLInputElement>('[data-testid="frequency-control"]');
+      expect(control, 'expected a [data-testid="frequency-control"] element').not.toBeNull();
+      const initialValue = control!.value;
+
+      enterCochleaFocus();
+      clickButton("unfold-cochlea");
+
+      const root = document.querySelector("main");
+      expect(root?.getAttribute("data-experience-state")).toBe("find");
+      expect(control!.value).toBe(initialValue);
+      expect(isToneActive()).toBe(false);
+    });
+
+    it("introduces no remote runtime visual asset for either illustration", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterCochleaFocus();
+
+      const art = document.querySelector('[data-testid="cochlea-focus-art"]');
+      expect(art, 'expected a [data-testid="cochlea-focus-art"] element').not.toBeNull();
+
+      const hrefs = Array.from(art!.querySelectorAll("use")).map(
+        (use) => use.getAttribute("href") ?? use.getAttribute("xlink:href") ?? "",
+      );
+      for (const href of hrefs) {
+        expect(href.startsWith("#")).toBe(true);
+      }
+    });
+  });
+
   it("has an accessible frequency control", () => {
     const control = document.querySelector('[data-testid="frequency-control"]');
     expect(control).not.toBeNull();

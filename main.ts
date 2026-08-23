@@ -26,6 +26,8 @@ import {
 } from "./gap";
 import { type SpectrumBand, aggregateBandEnergies, buildSpectrumBands } from "./spectrum";
 import { getDemoAnalyser, setDemoGapFilters, setDemoWet, startDemo, stopDemo } from "./demo";
+import coiledMapSvg from "./assets/orientation/coiled-cochlear-frequency-map.svg?raw";
+import ohcCutawaySvg from "./assets/orientation/outer-hair-cell-cutaway.svg?raw";
 
 const MAP_LEFT_X = 60;
 const MAP_RIGHT_X = 740;
@@ -323,6 +325,13 @@ function initExperience(): void {
   const unfoldButton = document.querySelector<HTMLButtonElement>('[data-testid="unfold-cochlea"]');
 
   if (!root || !orientationPanel || !cochleaFocusPanel || !explorerPanel) return;
+
+  const coiledMapContainer = cochleaFocusPanel.querySelector<HTMLElement>(
+    '[data-testid="coiled-map-illustration"]',
+  );
+  const ohcContainer = cochleaFocusPanel.querySelector<HTMLElement>('[data-testid="ohc-illustration"]');
+  if (coiledMapContainer) coiledMapContainer.innerHTML = coiledMapSvg;
+  if (ohcContainer) ohcContainer.innerHTML = ohcCutawaySvg;
 
   let state: ExperienceState = "orientation";
 

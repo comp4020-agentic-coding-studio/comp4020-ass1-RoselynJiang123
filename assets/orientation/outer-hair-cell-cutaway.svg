@@ -1,0 +1,194 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1440 900" role="img" aria-labelledby="ohc-title ohc-desc">
+  <title id="ohc-title">Schematic outer-hair-cell cutaway</title>
+  <desc id="ohc-desc">An original oblique cutaway showing three rows of outer hair cells, their stereocilia, supporting cells, and the basilar membrane. A wave below suggests that outer hair cells feed energy into cochlear vibration.</desc>
+  <defs>
+    <linearGradient id="ohc-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07131e"/>
+      <stop offset=".58" stop-color="#0b1c2b"/>
+      <stop offset="1" stop-color="#17132a"/>
+    </linearGradient>
+    <radialGradient id="ohc-ambient" cx="54%" cy="52%" r="58%">
+      <stop offset="0" stop-color="#3b8d90" stop-opacity=".23"/>
+      <stop offset=".62" stop-color="#20394b" stop-opacity=".08"/>
+      <stop offset="1" stop-color="#07131e" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="ohc-cellRear" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8ee8df"/>
+      <stop offset=".48" stop-color="#53b8c7"/>
+      <stop offset="1" stop-color="#4c5dad"/>
+    </linearGradient>
+    <linearGradient id="ohc-cellMiddle" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#d29ce9"/>
+      <stop offset=".5" stop-color="#aa64c7"/>
+      <stop offset="1" stop-color="#574b9d"/>
+    </linearGradient>
+    <linearGradient id="ohc-cellFront" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f2a8cf"/>
+      <stop offset=".5" stop-color="#d96aa8"/>
+      <stop offset="1" stop-color="#6a4b9b"/>
+    </linearGradient>
+    <linearGradient id="ohc-membrane" x1="0" y1="0" x2="1" y2=".8">
+      <stop offset="0" stop-color="#66d8d1" stop-opacity=".72"/>
+      <stop offset=".55" stop-color="#658bbd" stop-opacity=".48"/>
+      <stop offset="1" stop-color="#a76ab0" stop-opacity=".46"/>
+    </linearGradient>
+    <linearGradient id="ohc-wave" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#f5c975" stop-opacity=".2"/>
+      <stop offset=".35" stop-color="#f8bd74"/>
+      <stop offset=".7" stop-color="#9f89ff"/>
+      <stop offset="1" stop-color="#64dfd4" stop-opacity=".35"/>
+    </linearGradient>
+    <filter id="ohc-glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="8" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="ohc-shadow" x="-30%" y="-30%" width="160%" height="180%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="9" result="shadowBlur"/>
+      <feOffset in="shadowBlur" dx="0" dy="12" result="shadowOffset"/>
+      <feFlood flood-color="#02070c" flood-opacity=".58" result="shadowColor"/>
+      <feComposite in="shadowColor" in2="shadowOffset" operator="in" result="shadowShape"/>
+      <feMerge><feMergeNode in="shadowShape"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <symbol id="ohc-stereocilia" viewBox="0 0 100 55">
+      <g fill="none" stroke="currentColor" stroke-linecap="round">
+        <path d="M14 44V24M26 40V15M38 36V9M50 34V5M62 36V9M74 40V15M86 44V24" stroke-width="5"/>
+        <path d="M15 46Q50 28 85 46" stroke-width="2" opacity=".65"/>
+      </g>
+    </symbol>
+    <g id="ohc-support-cell">
+      <path d="M-34 0Q0-24 34 0L27 88Q0 112-27 88Z" fill="#294c5e" stroke="#65a8b5" stroke-opacity=".4" stroke-width="2"/>
+      <path d="M-18 12Q0 4 18 12L12 73Q0 83-12 73Z" fill="#172d3a" opacity=".76"/>
+    </g>
+    <g id="ohc-ohc-rear">
+      <ellipse cx="0" cy="0" rx="45" ry="20" fill="#b9fff1" stroke="#e8fffb" stroke-width="2"/>
+      <path d="M-43 1C-40 65-33 142 0 162C33 142 40 65 43 1Q0 24-43 1Z" fill="url(#ohc-cellRear)" stroke="#a6f4e9" stroke-opacity=".65" stroke-width="2"/>
+      <ellipse cx="0" cy="113" rx="14" ry="24" fill="#163e53" opacity=".78"/>
+      <g fill="none" stroke="#b6fff0" stroke-linecap="round">
+        <path d="M-34-7V-27M-23-11V-36M-12-15V-42M0-17V-46M12-15V-42M23-11V-36M34-7V-27" stroke-width="5"/>
+        <path d="M-34-5Q0-23 34-5" stroke-width="2" opacity=".65"/>
+      </g>
+    </g>
+    <g id="ohc-ohc-middle">
+      <ellipse cx="0" cy="0" rx="47" ry="21" fill="#f1d6ff" stroke="#fff3ff" stroke-width="2"/>
+      <path d="M-45 1C-42 68-34 148 0 168C34 148 42 68 45 1Q0 26-45 1Z" fill="url(#ohc-cellMiddle)" stroke="#e6bcfa" stroke-opacity=".65" stroke-width="2"/>
+      <ellipse cx="0" cy="116" rx="15" ry="25" fill="#3d316d" opacity=".78"/>
+      <g fill="none" stroke="#efcfff" stroke-linecap="round">
+        <path d="M-35-7V-28M-24-11V-38M-12-15V-44M0-17V-48M12-15V-44M24-11V-38M35-7V-28" stroke-width="5"/>
+        <path d="M-35-5Q0-24 35-5" stroke-width="2" opacity=".65"/>
+      </g>
+    </g>
+    <g id="ohc-ohc-front">
+      <ellipse cx="0" cy="0" rx="49" ry="22" fill="#ffe0f1" stroke="#fff6fb" stroke-width="2"/>
+      <path d="M-47 1C-44 72-36 155 0 177C36 155 44 72 47 1Q0 28-47 1Z" fill="url(#ohc-cellFront)" stroke="#ffc6e5" stroke-opacity=".68" stroke-width="2"/>
+      <ellipse cx="0" cy="123" rx="15" ry="26" fill="#583463" opacity=".78"/>
+      <g fill="none" stroke="#ffd5eb" stroke-linecap="round">
+        <path d="M-37-7V-29M-25-11V-39M-13-15V-45M0-18V-50M13-15V-45M25-11V-39M37-7V-29" stroke-width="5"/>
+        <path d="M-37-5Q0-25 37-5" stroke-width="2" opacity=".65"/>
+      </g>
+    </g>
+    <marker id="ohc-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M1 1 9 5 1 9Z" fill="#bff8ff"/>
+    </marker>
+  </defs>
+
+  <rect width="1440" height="900" rx="34" fill="url(#ohc-bg)"/>
+  <rect width="1440" height="900" rx="34" fill="url(#ohc-ambient)"/>
+  <g opacity=".1" stroke="#9fd6df" stroke-width="1">
+    <path d="M64 164H1376M64 770H1376"/>
+    <path d="M104 104V806M1336 104V806"/>
+  </g>
+
+  <g id="ohc-heading" font-family="Inter, ui-sans-serif, system-ui, sans-serif">
+    <text x="76" y="86" fill="#8edeea" font-size="17" font-weight="700" letter-spacing="3.6">SCHEMATIC · NOT TO SCALE</text>
+    <text x="76" y="136" fill="#f3f7fa" font-size="36" font-weight="650">The cochlea’s active amplifiers</text>
+    <text x="76" y="171" fill="#9db4c3" font-size="18">Three rows of outer hair cells feed energy back into cochlear vibration.</text>
+  </g>
+
+  <g id="ohc-reticular-lamina" filter="url(#ohc-shadow)">
+    <path d="M205 304 987 238 1237 339 431 420Z" fill="#447185" fill-opacity=".42" stroke="#8edce4" stroke-opacity=".45" stroke-width="3"/>
+    <path d="M228 316 982 255 1200 340 438 403Z" fill="#122b39" fill-opacity=".72"/>
+    <g fill="none" stroke="#74bdc9" stroke-opacity=".22" stroke-width="2">
+      <path d="M340 308 550 386M500 294 706 370M660 280 866 353M820 267 1024 336M980 255 1174 326"/>
+      <path d="M291 351 1034 286M365 380 1108 314"/>
+    </g>
+  </g>
+
+  <g id="ohc-row-3" aria-label="Rear row of outer hair cells" filter="url(#ohc-shadow)">
+    <g transform="translate(420 300) scale(.72)"><use xlink:href="#ohc-ohc-rear"/></g>
+    <g transform="translate(590 285) scale(.72)"><use xlink:href="#ohc-ohc-rear"/></g>
+    <g transform="translate(760 271) scale(.72)"><use xlink:href="#ohc-ohc-rear"/></g>
+    <g transform="translate(930 257) scale(.72)"><use xlink:href="#ohc-ohc-rear"/></g>
+  </g>
+  <g id="ohc-row-2" aria-label="Middle row of outer hair cells" filter="url(#ohc-shadow)">
+    <g transform="translate(475 400) scale(.84)"><use xlink:href="#ohc-ohc-middle"/></g>
+    <g transform="translate(665 384) scale(.84)"><use xlink:href="#ohc-ohc-middle"/></g>
+    <g transform="translate(855 368) scale(.84)"><use xlink:href="#ohc-ohc-middle"/></g>
+    <g transform="translate(1045 352) scale(.84)"><use xlink:href="#ohc-ohc-middle"/></g>
+  </g>
+  <g id="ohc-row-1" aria-label="Front row of outer hair cells" filter="url(#ohc-shadow)">
+    <g transform="translate(537 520)"><use xlink:href="#ohc-ohc-front"/></g>
+    <g transform="translate(747 501)"><use xlink:href="#ohc-ohc-front"/></g>
+    <g transform="translate(957 482)"><use xlink:href="#ohc-ohc-front"/></g>
+    <g transform="translate(1167 463)"><use xlink:href="#ohc-ohc-front"/></g>
+  </g>
+
+  <g id="ohc-supporting-cells" opacity=".94">
+    <g transform="translate(430 592) scale(.9)"><use xlink:href="#ohc-support-cell"/></g>
+    <g transform="translate(640 573) scale(.9)"><use xlink:href="#ohc-support-cell"/></g>
+    <g transform="translate(850 554) scale(.9)"><use xlink:href="#ohc-support-cell"/></g>
+    <g transform="translate(1060 535) scale(.9)"><use xlink:href="#ohc-support-cell"/></g>
+  </g>
+
+  <g id="ohc-basilar-membrane">
+    <path d="M264 638 1092 557 1275 654 422 752Z" fill="url(#ohc-membrane)" stroke="#79ced3" stroke-opacity=".48" stroke-width="3"/>
+    <path d="M287 658 1086 581 1238 655 430 731Z" fill="none" stroke="#c0f7f0" stroke-opacity=".25" stroke-width="2"/>
+    <g fill="none" stroke="#d4ffff" stroke-opacity=".12" stroke-width="2">
+      <path d="M352 631 506 722M496 617 649 705M640 603 794 688M784 589 938 672M928 575 1082 655"/>
+    </g>
+  </g>
+
+  <g id="ohc-vibration-wave" fill="none" filter="url(#ohc-glow)">
+    <path d="M238 776 C330 718 391 834 483 776 S636 718 728 776 S881 834 973 776 S1126 718 1218 776" stroke="url(#ohc-wave)" stroke-width="10" stroke-linecap="round"/>
+    <path d="M242 776H1226" stroke="#bff8ff" stroke-opacity=".2" stroke-width="2" stroke-dasharray="7 11" marker-end="url(#ohc-arrow)"/>
+  </g>
+
+  <g id="ohc-outer-hair-cell-label" font-family="Inter, ui-sans-serif, system-ui, sans-serif">
+    <rect x="81" y="307" width="248" height="86" rx="16" fill="#0a1925" stroke="#f0a5d0" stroke-opacity=".5"/>
+    <text x="103" y="338" fill="#f5b8da" font-size="18" font-weight="750">Outer hair cells</text>
+    <text x="103" y="364" fill="#dce9ef" font-size="14.5">three rows in the</text>
+    <text x="103" y="384" fill="#dce9ef" font-size="14.5">mammalian cochlea</text>
+    <path d="M329 351 455 413" fill="none" stroke="#f0a5d0" stroke-width="2"/>
+    <circle cx="455" cy="413" r="5" fill="#f0a5d0"/>
+  </g>
+
+  <g id="ohc-stereocilia-label" font-family="Inter, ui-sans-serif, system-ui, sans-serif">
+    <rect x="1085" y="207" width="271" height="70" rx="16" fill="#0a1925" stroke="#bdf8ee" stroke-opacity=".45"/>
+    <text x="1107" y="235" fill="#bdf8ee" font-size="18" font-weight="750">Stereocilia</text>
+    <text x="1107" y="258" fill="#dce9ef" font-size="14">hair-like bundles at each cell’s top</text>
+    <path d="M1085 253 980 300" fill="none" stroke="#bdf8ee" stroke-width="2"/>
+    <circle cx="980" cy="300" r="5" fill="#bdf8ee"/>
+  </g>
+
+  <g id="ohc-support-label" font-family="Inter, ui-sans-serif, system-ui, sans-serif">
+    <text x="107" y="575" fill="#76c6d2" font-size="16" font-weight="700">SUPPORTING CELLS</text>
+    <path d="M245 570 401 601" stroke="#76c6d2" stroke-width="2"/>
+  </g>
+
+  <g id="ohc-membrane-label" font-family="Inter, ui-sans-serif, system-ui, sans-serif">
+    <text x="108" y="698" fill="#88ddd8" font-size="16" font-weight="700">BASILAR MEMBRANE</text>
+    <path d="M274 693 397 674" stroke="#88ddd8" stroke-width="2"/>
+  </g>
+
+  <g id="ohc-function-label" font-family="Inter, ui-sans-serif, system-ui, sans-serif">
+    <rect x="1014" y="687" width="342" height="99" rx="17" fill="#0a1925" stroke="#b18bf2" stroke-opacity=".48"/>
+    <text x="1037" y="718" fill="#c8a7ff" font-size="18" font-weight="750">Amplify and sharpen vibration</text>
+    <text x="1037" y="744" fill="#dce9ef" font-size="14.5">Outer hair cells act as mechanical</text>
+    <text x="1037" y="765" fill="#dce9ef" font-size="14.5">effectors within the cochlea.</text>
+    <path d="M1014 733 970 743" stroke="#b18bf2" stroke-width="2"/>
+  </g>
+
+  <g id="ohc-footer" font-family="Inter, ui-sans-serif, system-ui, sans-serif">
+    <text x="76" y="846" fill="#809baa" font-size="13">Simplified orientation graphic · structures and spacing are not anatomically proportional.</text>
+    <text x="1364" y="846" text-anchor="end" fill="#6f8b9b" font-size="12">Concept source: Ashmore, Outer Hair Cells and Electromotility</text>
+  </g>
+</svg>
