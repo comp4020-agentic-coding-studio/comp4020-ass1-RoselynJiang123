@@ -278,6 +278,78 @@ playing with one frequency region attenuated.
 - Run the relevant checks and inspect the rendered result before any commit.
 - Never commit a red state.
 
+## Guided orientation
+
+- Before the existing Stage 1, the experience has exactly two optional
+  orientation states: `orientation -> cochlea-focus -> find`.
+- `orientation` shows the existing locally stored, project-generated ear
+  cutaway beside the exact WHO hook: "Over 1 billion young adults are at risk
+  of permanent, avoidable hearing loss due to unsafe listening practices."
+- The main project title remains "Hearing Is a Map, Not a Volume Knob". The
+  short orientation heading is "Follow the sound into the cochlea" — never
+  "Hear the sound" as the main title.
+- The cochlea hotspot is a real accessible button named "Explore the
+  cochlea", not an unlabeled animated circle.
+- `cochlea-focus` contains only: one original code-native schematic
+  outer-hair-cell SVG; one original code-native schematic coiled cochlear
+  frequency-map SVG; at most two short explanatory sentences; one primary
+  button, "Unfold the cochlea".
+- Provide "Skip to the interactive map" so returning, keyboard,
+  sound-disabled, and screen-reader users can enter `find` directly. Sound
+  must never be required to progress. Orientation must not become a general
+  anatomy lesson.
+- After unfolding, the existing straight map remains the only persistent
+  interactive coordinate system across Stages 1–3.
+- Do not implement a true geometry morph or `positionAt(t, morph)` unless a
+  later task explicitly requests it — the first version uses a safe visual
+  transition without rewriting existing geometry.
+
+### Extending the invariants above for orientation
+
+- The coiled orientation map must express the same frequency ordering as the
+  straight map (see "One visual coordinate system" and "Scientific mapping"
+  above).
+- All newly drawn biological visuals must be labelled "schematic". Reference
+  images may inform visual direction only — never copy, trace, embed,
+  download, or present them as project-owned assets or real microscopy.
+- Use code-native SVG for the coiled map and outer-hair-cell cutaway. Do not
+  add a new runtime dependency.
+
+### Sources and assets
+
+- WHO wording must retain "young adults" and "avoidable".
+- The two short cochlear claims should later cite Greenwood (1990) and
+  Ashmore (2019); complete entries belong in References.
+- External citation links are allowed. Remote runtime images, audio, fonts,
+  scripts, CSS assets, and fetched media are forbidden.
+- The existing ear cutaway may be used only if it is stored locally and its
+  generated provenance is documented; if absent, report it later — never
+  download or invent a substitute.
+- The student's voice recording must never be replaced with downloaded or
+  synthetic speech.
+
+### State and accessibility requirements
+
+- The root experience state will later be observable as: `orientation`,
+  `cochlea-focus`, `find`, `gap`, or `compare`.
+- Initialization, resize, animation completion, and programmatic events must
+  not advance the experience.
+- Reduced motion may change animation only, never state order or content
+  access.
+- Keyboard and screen-reader access must be equivalent to pointer access.
+- Stage 0 must work at 375px without forcing a two-column layout.
+
+### Harness and process, extended
+
+- Each implementation round must add or preserve a sensor for its most
+  important invariant.
+- Existing tests must not be weakened, deleted, or rewritten merely to pass.
+- Every round ends with `pnpm check` and rendered browser inspection before a
+  commit. Never commit a red state.
+- Do not invent cold-read results, user feedback, screenshots, reflections,
+  or PROCESS.md entries; PROCESS.md may record only work and observations
+  that actually happened.
+
 ## How to work in here
 
 - Keep the dev server running (`pnpm dev`) so you see changes as you make them.
