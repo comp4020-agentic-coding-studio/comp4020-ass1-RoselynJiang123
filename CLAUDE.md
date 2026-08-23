@@ -75,8 +75,8 @@ Numerical anchors:
 
 - `placeToFrequency(0) ≈ 19.8 Hz`
 - `placeToFrequency(1) ≈ 20,677 Hz`
-- `frequencyToPlace(4000) ≈ 0.665` — so 4 kHz sits about one-third of the
-  displayed distance from the left/base
+- `frequencyToPlace(4000) ≈ 0.6662` — so 4 kHz sits at approximately `0.3338`
+  of the displayed distance from the left/base
 
 The travelling-wave envelope is schematic and approximate, not a complete
 cochlear biomechanics simulation.
