@@ -341,6 +341,70 @@ a {
   opacity: 1;
 }
 
+/* Gap selection (Stage 2, "Make a gap") --- a translucent hatch fill plus a
+   dashed outline so the selected region reads without relying on colour
+   alone. The surface rect sits on top for pointer hit-testing; the
+   selection rect itself never intercepts pointer events. */
+
+.gap-hatch-line {
+  stroke: var(--accent-warm);
+  stroke-width: 3;
+}
+
+.gap-selection {
+  fill: url("#gap-hatch");
+  opacity: 0.6;
+  stroke: var(--accent-warm);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+  pointer-events: none;
+  transition: x 100ms ease, width 100ms ease;
+}
+
+.gap-selection-surface {
+  fill: transparent;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.wave-envelope[data-attenuated="true"] {
+  opacity: 0.35;
+  filter: none;
+}
+
+.wave-peak[data-attenuated="true"] {
+  opacity: 0.4;
+  filter: none;
+}
+
+/* In-gap cluster state takes priority over the active-cluster warm glow
+   (this rule block is deliberately placed after it, at equal selector
+   specificity, so the cascade favours "in gap" over "active"). Colour is
+   never the only signal: dimmed cells also lose their stereocilia detail,
+   and an active-but-damped cluster keeps a small outline instead of the
+   bright glow, marking "this is still the current location" without
+   restoring it. */
+
+.ohc-cluster[data-in-gap="true"] .ohc-body {
+  fill: var(--text-muted);
+  opacity: 0.4;
+  filter: none;
+}
+
+.ohc-cluster[data-in-gap="true"] .ohc-plate {
+  opacity: 0.3;
+}
+
+.ohc-cluster[data-in-gap="true"] .ohc-stereocilia {
+  opacity: 0.3;
+  stroke-dasharray: 1 2;
+}
+
+.ohc-cluster[data-active="true"][data-in-gap="true"] .ohc-body {
+  stroke: var(--focus);
+  stroke-width: 1.25;
+}
+
 .hair-cell-label {
   font-size: 11px;
   fill: var(--text-muted);
@@ -373,7 +437,8 @@ a {
   .reference-label,
   .ohc-body,
   .ohc-plate,
-  .ohc-stereocilia {
+  .ohc-stereocilia,
+  .gap-selection {
     transition: none;
   }
 }
@@ -442,7 +507,10 @@ a {
   background: var(--bg-panel);
 }
 
-/* Tone control */
+/* Tone control, and Stage 2's gap controls, share this compact cluster below
+   the map --- kept in one block so their button rules can stay in ascending
+   specificity order (no-descending-specificity cares about specificity
+   order across the whole sheet, not just visually adjacent rules). */
 
 .sound-control {
   margin: 1.75rem 0;
@@ -452,6 +520,33 @@ a {
   font-size: 0.875rem;
   color: var(--text-muted);
   margin: 0 0 0.75rem;
+}
+
+.gap-control {
+  margin: 1.75rem 0;
+}
+
+.gap-copy {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin: 0 0 0.75rem;
+  max-width: 34rem;
+}
+
+.gap-readout-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.gap-readout-row output {
+  font-variant-numeric: tabular-nums;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--line-dim);
+  border-radius: 0.35rem;
+  background: var(--bg-panel);
 }
 
 .sound-control button {
@@ -467,12 +562,70 @@ a {
   cursor: pointer;
 }
 
+.gap-readout-row button {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0.6rem 1.25rem;
+  font: inherit;
+  font-weight: 600;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 0.4rem;
+  cursor: pointer;
+}
+
 .sound-control button:hover {
   background: var(--wave);
 }
 
 .sound-control button[aria-pressed="true"] {
   background: var(--accent-warm);
+}
+
+.gap-readout-row button:hover {
+  border-color: var(--wave);
+  color: var(--wave);
+}
+
+.gap-boundaries {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 0.75rem 1rem 1rem;
+  border: 1px solid var(--line-dim);
+  border-radius: 0.5rem;
+}
+
+.gap-boundaries legend {
+  padding: 0 0.4rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.gap-boundary-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  flex: 1 1 10rem;
+  min-width: 0;
+}
+
+.gap-boundary-field label {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.gap-boundary-field input {
+  min-height: 44px;
+  width: 100%;
+  padding: 0.4rem 0.6rem;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  background: var(--bg-panel);
+  border: 1px solid var(--line-dim);
+  border-radius: 0.35rem;
 }
 
 @media (width <= 375px) {
@@ -490,5 +643,9 @@ a {
 
   .ohc-cluster:nth-of-type(odd) {
     display: none;
+  }
+
+  .gap-boundaries {
+    flex-direction: column;
   }
 }

@@ -12,8 +12,17 @@
 // exist from first paint regardless of that class, so nothing here depends on
 // the reveal having happened yet.
 
-import { frequencyToDisplayPosition, sliderPositionToFrequency } from "./cochlea";
-import { isToneActive, startTone, stopTone, updateToneFrequency } from "./audio";
+import { MAX_FREQUENCY_HZ, MIN_FREQUENCY_HZ, frequencyToDisplayPosition, sliderPositionToFrequency } from "./cochlea";
+import { isToneActive, setGapFilters, startTone, stopTone, updateToneFrequency } from "./audio";
+import {
+  type GapSelection,
+  clampDisplayPosition,
+  createGapSelection,
+  createGapSelectionFromFrequencies,
+  gapToFilterStages,
+  isDisplayPositionInGap,
+  isFrequencyInGap,
+} from "./gap";
 
 const MAP_LEFT_X = 60;
 const MAP_RIGHT_X = 740;
@@ -49,6 +58,20 @@ function formatFrequency(frequencyHz: number): string {
 function frequencyToMapX(frequencyHz: number): number {
   const displayPosition = frequencyToDisplayPosition(frequencyHz);
   return MAP_LEFT_X + displayPosition * (MAP_RIGHT_X - MAP_LEFT_X);
+}
+
+function displayPositionToMapX(displayPosition: number): number {
+  return MAP_LEFT_X + displayPosition * (MAP_RIGHT_X - MAP_LEFT_X);
+}
+
+function mapXToDisplayPosition(x: number): number {
+  return clampDisplayPosition((x - MAP_LEFT_X) / (MAP_RIGHT_X - MAP_LEFT_X));
+}
+
+function formatGapReadout(gap: GapSelection): string {
+  const lowKHz = (gap.lowFrequencyHz / 1000).toFixed(1);
+  const highKHz = (gap.highFrequencyHz / 1000).toFixed(1);
+  return `${lowKHz}–${highKHz} kHz attenuated`;
 }
 
 function buildEnvelopePath(centerX: number): string {
@@ -209,6 +232,12 @@ function init(): void {
   const instruction = document.querySelector<HTMLElement>('[data-testid="diagram-instruction"]');
   const toneToggle = document.querySelector<HTMLButtonElement>('[data-testid="tone-toggle"]');
   const peakCallout = document.querySelector<SVGGElement>('[data-testid="peak-callout"]');
+  const gapSurface = document.querySelector<SVGRectElement>('[data-testid="gap-selection-surface"]');
+  const gapSelectionRect = document.querySelector<SVGRectElement>('[data-testid="gap-selection"]');
+  const gapReadout = document.querySelector<HTMLOutputElement>('[data-testid="gap-readout"]');
+  const clearGapButton = document.querySelector<HTMLButtonElement>('[data-testid="clear-gap"]');
+  const gapLowerInput = document.querySelector<HTMLInputElement>('[data-testid="gap-lower-frequency"]');
+  const gapUpperInput = document.querySelector<HTMLInputElement>('[data-testid="gap-upper-frequency"]');
 
   if (!control || !readout || !diagram || !peak || !envelope) return;
 
@@ -222,6 +251,8 @@ function init(): void {
 
   const referenceMarks = layOutReferenceMarks(diagramEl);
   const outerHairCellClusters = layOutOuterHairCells(diagramEl);
+
+  let gap: GapSelection | null = null;
 
   function currentFrequency(): number {
     return sliderPositionToFrequency(controlEl.valueAsNumber);
@@ -239,6 +270,16 @@ function init(): void {
     peakCalloutLabel?.setAttribute("x", String(centerX));
     updateActiveOuterHairCells(outerHairCellClusters, displayPosition);
     updateReferenceMarkCollisions(referenceMarks, centerX);
+
+    const attenuated = gap !== null && isFrequencyInGap(frequencyHz, gap);
+    if (attenuated) {
+      envelopeEl.setAttribute("data-attenuated", "true");
+      peakEl.setAttribute("data-attenuated", "true");
+    } else {
+      envelopeEl.removeAttribute("data-attenuated");
+      peakEl.removeAttribute("data-attenuated");
+    }
+
     if (isToneActive()) {
       updateToneFrequency(frequencyHz);
     }
@@ -273,6 +314,129 @@ function init(): void {
   });
 
   window.addEventListener("pagehide", stopTone);
+
+  if (gapSurface && gapSelectionRect && gapReadout && clearGapButton && gapLowerInput && gapUpperInput) {
+    const surfaceEl = gapSurface;
+    const selectionEl = gapSelectionRect;
+    const gapReadoutEl = gapReadout;
+    const lowerInputEl = gapLowerInput;
+    const upperInputEl = gapUpperInput;
+
+    function renderGapGeometry(current: GapSelection | null): void {
+      if (!current) {
+        selectionEl.setAttribute("width", "0");
+        return;
+      }
+      const x = displayPositionToMapX(current.lowDisplayPosition);
+      const width = displayPositionToMapX(current.highDisplayPosition) - x;
+      selectionEl.setAttribute("x", String(x));
+      selectionEl.setAttribute("width", String(width));
+    }
+
+    function updateOuterHairCellGapState(current: GapSelection | null): void {
+      for (const cluster of outerHairCellClusters) {
+        const inGap = current !== null && isDisplayPositionInGap(cluster.displayPosition, current);
+        if (inGap) {
+          cluster.element.setAttribute("data-in-gap", "true");
+        } else {
+          cluster.element.removeAttribute("data-in-gap");
+        }
+      }
+    }
+
+    // Updates the selection geometry, cell states, readout, filters and
+    // wave/tone attenuation from a gap --- but never writes into the number
+    // inputs themselves. Doing that unconditionally on every commit would
+    // let editing one field's own "input" handler overwrite the *other*
+    // field's still-in-progress value with a rounded, minimum-width-enforced
+    // number before the visitor (or a keyboard-only test) gets to it.
+    function setGap(next: GapSelection | null): void {
+      gap = next;
+      renderGapGeometry(gap);
+      updateOuterHairCellGapState(gap);
+
+      if (gap) {
+        gapReadoutEl.textContent = formatGapReadout(gap);
+        setGapFilters(gapToFilterStages(gap));
+      } else {
+        gapReadoutEl.textContent = "No gap selected";
+        setGapFilters(null);
+      }
+
+      render();
+    }
+
+    // Reflects a gap set by pointer/touch drag or Clear back into the
+    // keyboard-accessible numeric fields, so all three input methods stay in
+    // sync with one shared gap state.
+    function syncGapInputs(current: GapSelection | null): void {
+      if (current) {
+        lowerInputEl.value = String(Math.round(current.lowFrequencyHz));
+        upperInputEl.value = String(Math.round(current.highFrequencyHz));
+      } else {
+        lowerInputEl.value = "";
+        upperInputEl.value = "";
+      }
+    }
+
+    function displayPositionFromClientX(clientX: number): number {
+      const rect = diagramEl.getBoundingClientRect();
+      const viewBoxX = rect.width > 0 ? ((clientX - rect.left) / rect.width) * 800 : 0;
+      return mapXToDisplayPosition(viewBoxX);
+    }
+
+    let dragStartPosition: number | null = null;
+
+    surfaceEl.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0) return;
+      dragStartPosition = displayPositionFromClientX(event.clientX);
+      surfaceEl.setPointerCapture?.(event.pointerId);
+      renderGapGeometry(createGapSelection(dragStartPosition, dragStartPosition));
+      event.preventDefault();
+    });
+
+    surfaceEl.addEventListener("pointermove", (event) => {
+      if (dragStartPosition === null) return;
+      const current = displayPositionFromClientX(event.clientX);
+      renderGapGeometry(createGapSelection(dragStartPosition, current));
+    });
+
+    surfaceEl.addEventListener("pointerup", (event) => {
+      if (dragStartPosition === null) return;
+      const endPosition = displayPositionFromClientX(event.clientX);
+      surfaceEl.releasePointerCapture?.(event.pointerId);
+      const finalized = createGapSelection(dragStartPosition, endPosition);
+      dragStartPosition = null;
+      setGap(finalized);
+      syncGapInputs(finalized);
+    });
+
+    surfaceEl.addEventListener("pointercancel", () => {
+      dragStartPosition = null;
+      renderGapGeometry(gap);
+    });
+
+    // Deliberately does not call syncGapInputs: this handler fires from the
+    // inputs' own "input" event, and writing rounded values back into both
+    // fields here would clobber whichever field the visitor (or a
+    // keyboard-only edit of lower then upper) hasn't gotten to yet.
+    function commitGapFromInputs(): void {
+      const lowerRaw = lowerInputEl.valueAsNumber;
+      const upperRaw = upperInputEl.valueAsNumber;
+      if (!Number.isFinite(lowerRaw) || !Number.isFinite(upperRaw)) return;
+      const lower = Math.min(MAX_FREQUENCY_HZ, Math.max(MIN_FREQUENCY_HZ, lowerRaw));
+      const upper = Math.min(MAX_FREQUENCY_HZ, Math.max(MIN_FREQUENCY_HZ, upperRaw));
+      setGap(createGapSelectionFromFrequencies(lower, upper));
+    }
+
+    lowerInputEl.addEventListener("input", commitGapFromInputs);
+    upperInputEl.addEventListener("input", commitGapFromInputs);
+
+    clearGapButton.addEventListener("click", () => {
+      setGap(null);
+      syncGapInputs(null);
+    });
+  }
 
   render();
 }

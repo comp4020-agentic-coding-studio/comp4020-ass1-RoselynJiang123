@@ -30,8 +30,21 @@
           <desc id="cochlear-map-desc">
             Schematic diagram, not to scale. Shown uncoiled as a map, high frequencies sit near the
             base on the left and low frequencies near the apex on the right. The bright peak marks
-            the travelling-wave crest for the selected frequency.
+            the travelling-wave crest for the selected frequency. A drag-selectable region marks a
+            simplified attenuated frequency range.
           </desc>
+
+          <defs>
+            <pattern
+              id="gap-hatch"
+              width="8"
+              height="8"
+              patternTransform="rotate(45)"
+              patternUnits="userSpaceOnUse"
+            >
+              <line class="gap-hatch-line" x1="0" y1="0" x2="0" y2="8" />
+            </pattern>
+          </defs>
 
           <g class="grid-lines" aria-hidden="true">
             <line x1="60" y1="70" x2="740" y2="70" />
@@ -99,6 +112,25 @@
             <text class="map-label map-label-sub" x="740" y="282" text-anchor="end">
               Low frequency
             </text>
+
+            <rect
+              data-testid="gap-selection"
+              class="gap-selection"
+              x="60"
+              y="100"
+              width="0"
+              height="130"
+              aria-hidden="true"
+            />
+            <rect
+              data-testid="gap-selection-surface"
+              class="gap-selection-surface"
+              x="60"
+              y="100"
+              width="680"
+              height="130"
+              aria-hidden="true"
+            />
           </g>
         </svg>
 
@@ -152,6 +184,45 @@
           tone.
         </p>
         <button type="button" data-testid="tone-toggle" aria-pressed="false">Play tone</button>
+      </div>
+
+      <div class="gap-control">
+        <p class="gap-copy">
+          Drag across the map above, or use the fields below, to select one region. A simplified
+          acoustic model of frequency-dependent attenuation &mdash; not a reproduction of an
+          individual&rsquo;s hearing.
+        </p>
+        <div class="gap-readout-row">
+          <output for="gap-lower-frequency gap-upper-frequency" data-testid="gap-readout" aria-live="polite"
+            >No gap selected</output
+          >
+          <button type="button" data-testid="clear-gap">Clear gap</button>
+        </div>
+        <fieldset class="gap-boundaries">
+          <legend>Gap boundaries</legend>
+          <div class="gap-boundary-field">
+            <label for="gap-lower-frequency">Gap lower frequency</label>
+            <input
+              type="number"
+              id="gap-lower-frequency"
+              data-testid="gap-lower-frequency"
+              min="125"
+              max="8000"
+              step="1"
+            />
+          </div>
+          <div class="gap-boundary-field">
+            <label for="gap-upper-frequency">Gap upper frequency</label>
+            <input
+              type="number"
+              id="gap-upper-frequency"
+              data-testid="gap-upper-frequency"
+              min="125"
+              max="8000"
+              step="1"
+            />
+          </div>
+        </fieldset>
       </div>
       </section>
     </main>

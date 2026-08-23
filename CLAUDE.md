@@ -237,6 +237,19 @@ Clarified for the opening anatomical view specifically:
 - This stays a tonotopy explainer, not a complete anatomy lesson — added
   detail must still serve the single explanatory claim.
 
+### Stage 2 rule
+
+"Make a gap" selection is exactly one continuous interval — never a freehand
+brush, never multiple simultaneous regions; a new drag or edit always replaces
+the previous interval. The attenuation it produces is the fixed model in
+`gap.ts` (two cascaded peaking filters, −12 dB each, never a boost) — not a
+tunable severity or a stand-in for measured hearing thresholds. An outer-hair-cell
+cluster that is both active and in-gap must render as its own distinct
+in-gap state (dimmed, non-color-only), not the bright active glow — active and
+in-gap are never visually conflated. Copy near the gap controls must keep
+saying this is a simplified acoustic model of frequency-dependent attenuation,
+never a reproduction of an individual's hearing or of real sensorineural loss.
+
 ### Process discipline
 
 - Don't invent `PROCESS.md` or reflections entries before events actually

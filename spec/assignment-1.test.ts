@@ -72,6 +72,21 @@ function setFrequency(hz: number): void {
   control!.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
+// jsdom's PointerEvent has no setPointerCapture, so Stage 2's pointer-drag
+// selection isn't exercisable here --- this spec drives the same shared gap
+// state through its keyboard-accessible equivalent instead (CLAUDE.md: "The
+// pointer gesture and numeric inputs must update one shared gap state").
+function setGapFrequencies(lowerHz: number, upperHz: number): void {
+  const lowerInput = document.querySelector<HTMLInputElement>('[data-testid="gap-lower-frequency"]');
+  const upperInput = document.querySelector<HTMLInputElement>('[data-testid="gap-upper-frequency"]');
+  expect(lowerInput, 'expected a [data-testid="gap-lower-frequency"] element').not.toBeNull();
+  expect(upperInput, 'expected a [data-testid="gap-upper-frequency"] element').not.toBeNull();
+  lowerInput!.value = String(lowerHz);
+  lowerInput!.dispatchEvent(new Event("input", { bubbles: true }));
+  upperInput!.value = String(upperHz);
+  upperInput!.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
 describe("Assignment 1: Hearing Is a Map, Not a Volume Knob", () => {
   beforeEach(() => {
     loadPage();
@@ -193,5 +208,87 @@ describe("Assignment 1: Hearing Is a Map, Not a Volume Knob", () => {
     for (let i = 1; i < positions.length; i += 1) {
       expect(positions[i]).toBeGreaterThan(positions[i - 1]);
     }
+  });
+
+  describe("Stage 2: Make a gap", () => {
+    it("setting or reversing gap boundaries produces one ordered visible selection", async () => {
+      vi.resetModules();
+      await import("../main");
+      setFrequency(1000);
+
+      const selection = document.querySelector('[data-testid="gap-selection"]');
+      expect(selection, 'expected a [data-testid="gap-selection"] element').not.toBeNull();
+
+      setGapFrequencies(2000, 4000);
+      const widthForward = Number(selection!.getAttribute("width"));
+      expect(widthForward).toBeGreaterThan(0);
+
+      setGapFrequencies(4000, 2000);
+      const widthReversed = Number(selection!.getAttribute("width"));
+      expect(widthReversed).toBeCloseTo(widthForward, 5);
+
+      const readout = document.querySelector('[data-testid="gap-readout"]');
+      expect(readout, 'expected a [data-testid="gap-readout"] element').not.toBeNull();
+      const readoutText = readout!.textContent ?? "";
+      expect(readoutText.indexOf("2.0")).toBeGreaterThanOrEqual(0);
+      expect(readoutText.indexOf("4.0")).toBeGreaterThan(readoutText.indexOf("2.0"));
+    });
+
+    it("only outer-hair-cell clusters within the gap interval receive data-in-gap", async () => {
+      vi.resetModules();
+      await import("../main");
+      setFrequency(1000);
+      setGapFrequencies(MIN_FREQUENCY_HZ, 500);
+
+      const layer = document.querySelector('[data-testid="outer-hair-cells"]');
+      expect(layer, 'expected a [data-testid="outer-hair-cells"] element').not.toBeNull();
+      const clusters = Array.from(layer!.querySelectorAll(".ohc-cluster"));
+
+      const inGap = clusters.filter((cluster) => cluster.getAttribute("data-in-gap") === "true");
+      const outsideGap = clusters.filter((cluster) => cluster.getAttribute("data-in-gap") !== "true");
+
+      expect(inGap.length).toBeGreaterThan(0);
+      expect(outsideGap.length).toBeGreaterThan(0);
+    });
+
+    it("moving the frequency into the gap visibly reduces the wave peak and envelope glow", async () => {
+      vi.resetModules();
+      await import("../main");
+
+      setGapFrequencies(3000, 5000);
+
+      setFrequency(4000);
+      const peak = document.querySelector('[data-testid="travelling-wave-peak"]');
+      const envelope = document.querySelector(".wave-envelope");
+      expect(peak, 'expected a [data-testid="travelling-wave-peak"] element').not.toBeNull();
+      expect(envelope, "expected a .wave-envelope element").not.toBeNull();
+      expect(peak!.getAttribute("data-attenuated")).toBe("true");
+      expect(envelope!.getAttribute("data-attenuated")).toBe("true");
+
+      setFrequency(1000);
+      expect(peak!.getAttribute("data-attenuated")).not.toBe("true");
+      expect(envelope!.getAttribute("data-attenuated")).not.toBe("true");
+    });
+
+    it("clearing the gap removes the selection and all in-gap cell states", async () => {
+      vi.resetModules();
+      await import("../main");
+      setFrequency(1000);
+      setGapFrequencies(2000, 4000);
+
+      const clearButton = document.querySelector<HTMLButtonElement>('[data-testid="clear-gap"]');
+      expect(clearButton, 'expected a [data-testid="clear-gap"] element').not.toBeNull();
+      clearButton!.click();
+
+      const selection = document.querySelector('[data-testid="gap-selection"]');
+      expect(Number(selection?.getAttribute("width"))).toBe(0);
+
+      const layer = document.querySelector('[data-testid="outer-hair-cells"]');
+      expect(layer, 'expected a [data-testid="outer-hair-cells"] element').not.toBeNull();
+      expect(layer!.querySelectorAll('[data-in-gap="true"]').length).toBe(0);
+
+      const readout = document.querySelector('[data-testid="gap-readout"]');
+      expect(readout?.textContent).toMatch(/no gap/i);
+    });
   });
 });
