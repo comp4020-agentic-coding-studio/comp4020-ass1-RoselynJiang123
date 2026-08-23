@@ -14,6 +14,7 @@
 
 import { MAX_FREQUENCY_HZ, MIN_FREQUENCY_HZ, frequencyToDisplayPosition, sliderPositionToFrequency } from "./cochlea";
 import { isToneActive, setGapFilters, startTone, stopTone, updateToneFrequency } from "./audio";
+import { type ExperienceState, nextExperienceState } from "./experience";
 import {
   type GapSelection,
   clampDisplayPosition,
@@ -308,7 +309,63 @@ function updateSpectrumBarEnergies(bars: SpectrumBar[], analyser: AnalyserNode):
   });
 }
 
+// Guided orientation wiring (CLAUDE.md: "Guided orientation"). The state
+// itself lives in `state` below and is the only thing nextExperienceState
+// ever reads/advances --- initialization, resize, animation completion and
+// audio events must never call it, only these three explicit activations.
+function initExperience(): void {
+  const root = document.querySelector<HTMLElement>("main");
+  const orientationPanel = document.querySelector<HTMLElement>('[data-testid="orientation-panel"]');
+  const cochleaFocusPanel = document.querySelector<HTMLElement>('[data-testid="cochlea-focus-panel"]');
+  const explorerPanel = document.querySelector<HTMLElement>('[data-testid="explorer-panel"]');
+  const exploreButton = document.querySelector<HTMLButtonElement>('[data-testid="explore-cochlea"]');
+  const skipButton = document.querySelector<HTMLButtonElement>('[data-testid="skip-to-map"]');
+  const unfoldButton = document.querySelector<HTMLButtonElement>('[data-testid="unfold-cochlea"]');
+
+  if (!root || !orientationPanel || !cochleaFocusPanel || !explorerPanel) return;
+
+  let state: ExperienceState = "orientation";
+
+  function applyState(): void {
+    root!.setAttribute("data-experience-state", state);
+    orientationPanel!.hidden = state !== "orientation";
+    cochleaFocusPanel!.hidden = state !== "cochlea-focus";
+    explorerPanel!.hidden = state === "orientation" || state === "cochlea-focus";
+  }
+
+  // Keyboard activation for Enter/Space is handled explicitly (matching the
+  // gap-compare control elsewhere in this file) rather than relying on a
+  // browser's native <button> keyboard-to-click behaviour, which the test
+  // environment doesn't simulate.
+  function bindActivation(button: HTMLButtonElement | null, handler: () => void): void {
+    if (!button) return;
+    button.addEventListener("click", handler);
+    button.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      handler();
+    });
+  }
+
+  bindActivation(exploreButton, () => {
+    state = nextExperienceState(state, "explore-cochlea");
+    applyState();
+  });
+  bindActivation(skipButton, () => {
+    state = nextExperienceState(state, "skip-to-map");
+    applyState();
+  });
+  bindActivation(unfoldButton, () => {
+    state = nextExperienceState(state, "unfold-cochlea");
+    applyState();
+  });
+
+  applyState();
+}
+
 function init(): void {
+  initExperience();
+
   const control = document.querySelector<HTMLInputElement>('[data-testid="frequency-control"]');
   const readout = document.querySelector<HTMLOutputElement>('[data-testid="frequency-readout"]');
   const diagram = document.querySelector<SVGSVGElement>('[data-testid="cochlear-diagram"]');

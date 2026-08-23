@@ -53,6 +53,40 @@ main {
   background: rgb(16 26 44 / 60%);
 }
 
+.orientation-panel,
+.cochlea-focus-panel {
+  margin-top: 1.75rem;
+  padding: 1.5rem;
+  border: 1px solid var(--line-dim);
+  border-radius: 1rem;
+  background: rgb(16 26 44 / 60%);
+}
+
+.orientation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.orientation-actions button,
+.cochlea-focus-panel button {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0.6rem 1.25rem;
+  font: inherit;
+  font-weight: 600;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 0.4rem;
+  cursor: pointer;
+}
+
+.cochlea-focus-placeholder {
+  color: var(--text-muted);
+  max-width: 34rem;
+}
+
 h1 {
   font-size: 1.75rem;
   letter-spacing: 0.01em;
@@ -61,6 +95,28 @@ h1 {
 
 .intro {
   color: var(--text-muted);
+  max-width: 34rem;
+}
+
+.evidence-line {
+  color: var(--text-muted);
+  max-width: 34rem;
+  font-size: 0.9375rem;
+}
+
+h2 {
+  font-size: 1.1rem;
+  margin: 1.75rem 0 0.35rem;
+}
+
+.explorer-panel > h2:first-child {
+  margin-top: 0;
+}
+
+.stage-instruction {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin: 0 0 0.75rem;
   max-width: 34rem;
 }
 
@@ -747,4 +803,53 @@ a {
   font-size: 0.875rem;
   color: var(--accent-warm);
   margin-top: 0.75rem;
+}
+
+/* Closing wrap-up: medically qualified conclusion, the required limits
+   disclosure and the source ledger --- plain content, not a second
+   interactive panel, so it deliberately doesn't reuse .explorer-panel's
+   bordered treatment. */
+
+.wrap-up {
+  margin-top: 2rem;
+}
+
+.conclusion {
+  max-width: 34rem;
+  margin: 0 0 0.5rem;
+}
+
+.model-limits {
+  margin: 1rem 0 1.75rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--line-dim);
+  border-radius: 0.5rem;
+}
+
+.model-limits summary {
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.model-limits ul {
+  margin: 0.75rem 0 0;
+  padding-left: 1.25rem;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.model-limits li {
+  margin-bottom: 0.5rem;
+}
+
+.sources-list {
+  margin: 0;
+  padding-left: 1.25rem;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  max-width: 34rem;
+}
+
+.sources-list li {
+  margin-bottom: 0.4rem;
 }

@@ -24,6 +24,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MAX_FREQUENCY_HZ, MIN_FREQUENCY_HZ, frequencyToSliderPosition } from "../cochlea";
+import { isToneActive } from "../audio";
 
 const SOURCE_HTML = readFileSync(resolve("index.html"), "utf8");
 
@@ -87,6 +88,21 @@ function setGapFrequencies(lowerHz: number, upperHz: number): void {
   upperInput!.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
+// Stage 1-3 only become available in the "find" experience state (CLAUDE.md:
+// "Guided orientation"). Existing specs that exercise Stage 1-3 controls
+// immediately after loading the page now go through the guided orientation's
+// keyboard/screen-reader escape hatch first, same as a returning visitor
+// would.
+function clickButton(testId: string): void {
+  const button = document.querySelector<HTMLButtonElement>(`[data-testid="${testId}"]`);
+  expect(button, `expected a [data-testid="${testId}"] element`).not.toBeNull();
+  button!.click();
+}
+
+function enterFind(): void {
+  clickButton("skip-to-map");
+}
+
 describe("Assignment 1: Hearing Is a Map, Not a Volume Knob", () => {
   beforeEach(() => {
     loadPage();
@@ -95,6 +111,140 @@ describe("Assignment 1: Hearing Is a Map, Not a Volume Knob", () => {
   it('presents the title "Hearing Is a Map, Not a Volume Knob"', () => {
     const heading = document.querySelector("h1");
     expect(heading?.textContent?.trim()).toBe("Hearing Is a Map, Not a Volume Knob");
+  });
+
+  describe("Guided orientation", () => {
+    it('starts fresh with data-experience-state="orientation"', async () => {
+      vi.resetModules();
+      await import("../main");
+
+      const root = document.querySelector("main");
+      expect(root?.getAttribute("data-experience-state")).toBe("orientation");
+    });
+
+    it("hides the Stage 1-3 explorer panel while in orientation", async () => {
+      vi.resetModules();
+      await import("../main");
+
+      const explorerPanel = document.querySelector<HTMLElement>('[data-testid="explorer-panel"]');
+      expect(explorerPanel, 'expected a [data-testid="explorer-panel"] element').not.toBeNull();
+      expect(explorerPanel!.hidden).toBe(true);
+
+      const control = document.querySelector<HTMLInputElement>('[data-testid="frequency-control"]');
+      expect(control, 'expected a [data-testid="frequency-control"] element').not.toBeNull();
+      expect(control!.closest("[hidden]")).not.toBeNull();
+    });
+
+    it('has a real "Explore the cochlea" button', async () => {
+      vi.resetModules();
+      await import("../main");
+
+      const button = document.querySelector<HTMLButtonElement>('[data-testid="explore-cochlea"]');
+      expect(button, 'expected a [data-testid="explore-cochlea"] element').not.toBeNull();
+      expect(button!.tagName.toLowerCase()).toBe("button");
+      expect(button!.textContent?.trim()).toBe("Explore the cochlea");
+    });
+
+    it('activating "Explore the cochlea" enters cochlea-focus', async () => {
+      vi.resetModules();
+      await import("../main");
+
+      clickButton("explore-cochlea");
+
+      const root = document.querySelector("main");
+      expect(root?.getAttribute("data-experience-state")).toBe("cochlea-focus");
+    });
+
+    it('cochlea-focus has a real "Unfold the cochlea" button', async () => {
+      vi.resetModules();
+      await import("../main");
+
+      clickButton("explore-cochlea");
+
+      const button = document.querySelector<HTMLButtonElement>('[data-testid="unfold-cochlea"]');
+      expect(button, 'expected a [data-testid="unfold-cochlea"] element').not.toBeNull();
+      expect(button!.tagName.toLowerCase()).toBe("button");
+      expect(button!.textContent?.trim()).toBe("Unfold the cochlea");
+    });
+
+    it('activating "Unfold the cochlea" enters find', async () => {
+      vi.resetModules();
+      await import("../main");
+
+      clickButton("explore-cochlea");
+      clickButton("unfold-cochlea");
+
+      const root = document.querySelector("main");
+      expect(root?.getAttribute("data-experience-state")).toBe("find");
+
+      const explorerPanel = document.querySelector<HTMLElement>('[data-testid="explorer-panel"]');
+      expect(explorerPanel!.hidden).toBe(false);
+    });
+
+    it('orientation\'s "Skip to the interactive map" enters find directly', async () => {
+      vi.resetModules();
+      await import("../main");
+
+      const skip = document.querySelector<HTMLButtonElement>('[data-testid="skip-to-map"]');
+      expect(skip, 'expected a [data-testid="skip-to-map"] element').not.toBeNull();
+      expect(skip!.textContent?.trim()).toBe("Skip to the interactive map");
+
+      skip!.click();
+
+      const root = document.querySelector("main");
+      expect(root?.getAttribute("data-experience-state")).toBe("find");
+    });
+
+    it("activates orientation controls via keyboard (Enter and Space)", async () => {
+      vi.resetModules();
+      await import("../main");
+
+      const explore = document.querySelector<HTMLButtonElement>('[data-testid="explore-cochlea"]');
+      expect(explore, 'expected a [data-testid="explore-cochlea"] element').not.toBeNull();
+      explore!.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }),
+      );
+      expect(document.querySelector("main")?.getAttribute("data-experience-state")).toBe(
+        "cochlea-focus",
+      );
+
+      const unfold = document.querySelector<HTMLButtonElement>('[data-testid="unfold-cochlea"]');
+      expect(unfold, 'expected a [data-testid="unfold-cochlea"] element').not.toBeNull();
+      unfold!.dispatchEvent(
+        new KeyboardEvent("keydown", { key: " ", bubbles: true, cancelable: true }),
+      );
+      expect(document.querySelector("main")?.getAttribute("data-experience-state")).toBe("find");
+    });
+
+    it("does not advance state on resize or animation-completion events", async () => {
+      vi.resetModules();
+      await import("../main");
+
+      window.dispatchEvent(new Event("resize"));
+      document
+        .querySelector('[data-testid="cochlea-focus-panel"]')
+        ?.dispatchEvent(new Event("animationend", { bubbles: true }));
+      document
+        .querySelector('[data-testid="orientation-panel"]')
+        ?.dispatchEvent(new Event("transitionend", { bubbles: true }));
+
+      const root = document.querySelector("main");
+      expect(root?.getAttribute("data-experience-state")).toBe("orientation");
+    });
+
+    it("entering find via skip does not start audio or change the current frequency", async () => {
+      vi.resetModules();
+      await import("../main");
+
+      const control = document.querySelector<HTMLInputElement>('[data-testid="frequency-control"]');
+      expect(control, 'expected a [data-testid="frequency-control"] element').not.toBeNull();
+      const initialValue = control!.value;
+
+      enterFind();
+
+      expect(control!.value).toBe(initialValue);
+      expect(isToneActive()).toBe(false);
+    });
   });
 
   it("has an accessible frequency control", () => {
@@ -106,6 +256,7 @@ describe("Assignment 1: Hearing Is a Map, Not a Volume Knob", () => {
   it("moving the frequency control updates the visible readout and the travelling-wave peak, base-left/apex-right", async () => {
     vi.resetModules();
     await import("../main");
+    enterFind();
 
     const readoutText = () =>
       document.querySelector('[data-testid="frequency-readout"]')?.textContent ?? "";
@@ -134,6 +285,7 @@ describe("Assignment 1: Hearing Is a Map, Not a Volume Knob", () => {
   it("reveals the unfolded cochlear map after the first frequency-control interaction", async () => {
     vi.resetModules();
     await import("../main");
+    enterFind();
 
     const diagram = document.querySelector('[data-testid="cochlear-diagram"]');
     expect(diagram, 'expected a [data-testid="cochlear-diagram"] element').not.toBeNull();
@@ -147,6 +299,7 @@ describe("Assignment 1: Hearing Is a Map, Not a Volume Knob", () => {
   it("changing frequency moves the active outer-hair-cell cluster in the same left/right direction as the travelling-wave peak", async () => {
     vi.resetModules();
     await import("../main");
+    enterFind();
 
     const peakPosition = () => {
       const peak = document.querySelector('[data-testid="travelling-wave-peak"]');
@@ -185,6 +338,7 @@ describe("Assignment 1: Hearing Is a Map, Not a Volume Knob", () => {
   it("builds a three-row, ordered outer-hair-cell layer inside the map", async () => {
     vi.resetModules();
     await import("../main");
+    enterFind();
 
     const layer = document.querySelector('[data-testid="outer-hair-cells"]');
     expect(layer, 'expected a [data-testid="outer-hair-cells"] element').not.toBeNull();
@@ -214,6 +368,7 @@ describe("Assignment 1: Hearing Is a Map, Not a Volume Knob", () => {
     it("setting or reversing gap boundaries produces one ordered visible selection", async () => {
       vi.resetModules();
       await import("../main");
+      enterFind();
       setFrequency(1000);
 
       const selection = document.querySelector('[data-testid="gap-selection"]');
@@ -237,6 +392,7 @@ describe("Assignment 1: Hearing Is a Map, Not a Volume Knob", () => {
     it("only outer-hair-cell clusters within the gap interval receive data-in-gap", async () => {
       vi.resetModules();
       await import("../main");
+      enterFind();
       setFrequency(1000);
       setGapFrequencies(MIN_FREQUENCY_HZ, 500);
 
@@ -254,6 +410,7 @@ describe("Assignment 1: Hearing Is a Map, Not a Volume Knob", () => {
     it("moving the frequency into the gap visibly reduces the wave peak and envelope glow", async () => {
       vi.resetModules();
       await import("../main");
+      enterFind();
 
       setGapFrequencies(3000, 5000);
 
@@ -273,6 +430,7 @@ describe("Assignment 1: Hearing Is a Map, Not a Volume Knob", () => {
     it("clearing the gap removes the selection and all in-gap cell states", async () => {
       vi.resetModules();
       await import("../main");
+      enterFind();
       setFrequency(1000);
       setGapFrequencies(2000, 4000);
 
@@ -304,6 +462,7 @@ describe("Assignment 1: Hearing Is a Map, Not a Volume Knob", () => {
     it("renders exactly 24 spectrum bars inside the map, in Greenwood order", async () => {
       vi.resetModules();
       await import("../main");
+      enterFind();
 
       const container = document.querySelector('[data-testid="spectrum-bars"]');
       expect(container, 'expected a [data-testid="spectrum-bars"] element').not.toBeNull();
@@ -333,6 +492,7 @@ describe("Assignment 1: Hearing Is a Map, Not a Volume Knob", () => {
     it("disables the compare control until a gap exists", async () => {
       vi.resetModules();
       await import("../main");
+      enterFind();
 
       const compareButton = document.querySelector<HTMLButtonElement>('[data-testid="gap-compare"]');
       expect(compareButton, 'expected a [data-testid="gap-compare"] element').not.toBeNull();
@@ -348,6 +508,7 @@ describe("Assignment 1: Hearing Is a Map, Not a Volume Knob", () => {
     it("holding the compare control (pointer or keyboard) switches to 'Through the gap'; releasing restores 'Original'", async () => {
       vi.resetModules();
       await import("../main");
+      enterFind();
 
       setGapFrequencies(2000, 4000);
 
@@ -386,6 +547,7 @@ describe("Assignment 1: Hearing Is a Map, Not a Volume Knob", () => {
     it("losing the hold (pointercancel, pointerleave or blur) restores 'Original'", async () => {
       vi.resetModules();
       await import("../main");
+      enterFind();
 
       setGapFrequencies(2000, 4000);
       const playButton = document.querySelector<HTMLButtonElement>('[data-testid="demo-play"]');
@@ -399,6 +561,62 @@ describe("Assignment 1: Hearing Is a Map, Not a Volume Knob", () => {
         dispatchType(compareButton!, releaseType);
         expect(routeStatus!.textContent).toMatch(/Original/);
         expect(compareButton!.getAttribute("aria-pressed")).toBe("false");
+      }
+    });
+  });
+
+  describe("Final copy: medical limits, sources and conclusion", () => {
+    it("labels each stage with its concise heading, in order", () => {
+      const headings = Array.from(document.querySelectorAll("h2")).map((h) =>
+        h.textContent?.trim(),
+      );
+      expect(headings).toEqual([
+        "Follow the sound into the cochlea",
+        "Find the sound",
+        "Make a gap",
+        "Hear what the gap removes",
+        "Sources",
+      ]);
+    });
+
+    it("states the required medical disclaimer", () => {
+      expect(document.body.textContent).toMatch(
+        /This page is not a hearing test or medical advice\. If you are concerned about your\s+hearing, see an audiologist\./,
+      );
+    });
+
+    it("provides an accessible model-limits disclosure", () => {
+      const details = document.querySelector(".model-limits");
+      expect(details, "expected a .model-limits <details> element").not.toBeNull();
+      expect(details!.tagName.toLowerCase()).toBe("details");
+      const summary = details!.querySelector("summary");
+      expect(summary?.textContent?.trim()).toBe("Model limits and safety");
+    });
+
+    it("closes with the required medically qualified conclusion", () => {
+      const conclusions = Array.from(document.querySelectorAll(".conclusion")).map((el) =>
+        el.textContent?.trim(),
+      );
+      expect(conclusions).toContain(
+        "Sensorineural damage does not simply turn the world down. It can remove parts of it.",
+      );
+      expect(conclusions).toContain("Speaking louder may not restore the missing detail.");
+    });
+
+    it("cites the WHO evidence line directly", () => {
+      const evidenceLink = document.querySelector<HTMLAnchorElement>(".evidence-line a");
+      expect(evidenceLink, "expected an evidence-line link to the WHO source").not.toBeNull();
+      expect(evidenceLink!.getAttribute("href")).toBe(
+        "https://www.who.int/news-room/fact-sheets/detail/deafness-and-hearing-loss",
+      );
+    });
+
+    it("links every source as an HTTPS URL that names its destination", () => {
+      const links = Array.from(document.querySelectorAll<HTMLAnchorElement>(".sources-list a"));
+      expect(links.length).toBeGreaterThanOrEqual(5);
+      for (const link of links) {
+        expect(link.getAttribute("href")).toMatch(/^https:\/\//);
+        expect(link.textContent?.trim().length).toBeGreaterThan(0);
       }
     });
   });

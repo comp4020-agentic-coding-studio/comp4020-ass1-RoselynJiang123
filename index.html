@@ -10,13 +10,38 @@
     <nav aria-label="Primary">
       <a class="skip-link" href="#frequency-control">Skip to frequency control</a>
     </nav>
-    <main>
+    <main data-experience-state="orientation">
       <h1>Hearing Is a Map, Not a Volume Knob</h1>
       <p class="intro">
         Your cochlea turns frequency into place. Sensorineural damage can leave gaps in that map.
       </p>
+      <p class="evidence-line">
+        Over 1 billion young adults are at risk of permanent, avoidable hearing loss from unsafe
+        listening, according to the
+        <a href="https://www.who.int/news-room/fact-sheets/detail/deafness-and-hearing-loss"
+          >World Health Organization</a
+        >.
+      </p>
 
-      <section class="explorer-panel">
+      <section class="orientation-panel" data-testid="orientation-panel">
+        <h2 class="orientation-heading">Follow the sound into the cochlea</h2>
+        <div class="orientation-actions">
+          <button type="button" data-testid="explore-cochlea">Explore the cochlea</button>
+          <button type="button" data-testid="skip-to-map">Skip to the interactive map</button>
+        </div>
+      </section>
+
+      <section class="cochlea-focus-panel" data-testid="cochlea-focus-panel" hidden>
+        <p class="cochlea-focus-placeholder" data-testid="cochlea-focus-placeholder">
+          Temporary schematic placeholder &mdash; the outer-hair-cell and coiled cochlear-map
+          illustrations replace this in the next round.
+        </p>
+        <button type="button" data-testid="unfold-cochlea">Unfold the cochlea</button>
+      </section>
+
+      <section class="explorer-panel" data-testid="explorer-panel" hidden>
+      <h2>Find the sound</h2>
+      <p class="stage-instruction">Different frequencies peak at different cochlear places.</p>
       <figure class="diagram-figure">
         <div class="diagram-stage" data-testid="diagram-stage">
         <svg
@@ -194,10 +219,13 @@
       </div>
 
       <div class="gap-control">
+        <h2>Make a gap</h2>
+        <p class="stage-instruction">
+          Select one continuous region; this model attenuates that frequency range.
+        </p>
         <p class="gap-copy">
-          Drag across the map above, or use the fields below, to select one region. A simplified
-          acoustic model of frequency-dependent attenuation &mdash; not a reproduction of an
-          individual&rsquo;s hearing.
+          A simplified acoustic model of frequency-dependent attenuation &mdash; not a
+          reproduction of an individual&rsquo;s hearing.
         </p>
         <div class="gap-readout-row">
           <output for="gap-lower-frequency gap-upper-frequency" data-testid="gap-readout" aria-live="polite"
@@ -233,9 +261,12 @@
       </div>
 
       <div class="demo-control">
+        <h2>Hear what the gap removes</h2>
+        <p class="stage-instruction">Play the same speech/melody and hold to compare.</p>
         <p class="demo-copy">
-          The same sound is playing. This simplified model attenuates only the frequency region
-          you selected.
+          The same recording plays every time. Holding the control routes it through the same
+          simplified acoustic model of frequency-dependent attenuation &mdash; never a
+          reproduction of an individual&rsquo;s hearing.
         </p>
         <p class="spectrum-caption">
           The 24 bars on the map above are a schematic ERB-grouped spectrum, not individual
@@ -255,6 +286,70 @@
         </div>
         <p class="demo-error" data-testid="demo-error" role="alert" hidden></p>
       </div>
+      </section>
+
+      <section class="wrap-up">
+        <p class="conclusion">
+          Sensorineural damage does not simply turn the world down. It can remove parts of it.
+        </p>
+        <p class="conclusion">Speaking louder may not restore the missing detail.</p>
+
+        <details class="model-limits">
+          <summary>Model limits and safety</summary>
+          <ul>
+            <li>This is a simplified acoustic model of frequency-dependent attenuation.</li>
+            <li>It does not reproduce an individual&rsquo;s hearing.</li>
+            <li>
+              Real sensorineural hearing loss can also involve loudness recruitment, reduced
+              frequency selectivity and temporal-processing changes, which this model does not
+              reproduce.
+            </li>
+            <li>
+              Conductive hearing loss behaves differently, and may be closer to broad attenuation.
+            </li>
+            <li>
+              Outer hair cells contribute cochlear amplification and sharpening; they are not the
+              primary sensory receptors.
+            </li>
+            <li>A selected gap is illustrative, not a diagnosis.</li>
+            <li>
+              This page is not a hearing test or medical advice. If you are concerned about your
+              hearing, see an audiologist.
+            </li>
+            <li>Never raise the volume merely to hear a high-frequency tone.</li>
+          </ul>
+        </details>
+
+        <h2>Sources</h2>
+        <ol class="sources-list">
+          <li>
+            <a href="https://www.who.int/news-room/fact-sheets/detail/deafness-and-hearing-loss"
+              >World Health Organization, &ldquo;Deafness and hearing loss&rdquo; (updated 3 March
+              2026)</a
+            >
+          </li>
+          <li>
+            <a href="https://doi.org/10.1121/1.399052"
+              >Greenwood, D. D. (1990), the human cochlear frequency&#8211;place function</a
+            >
+          </li>
+          <li>
+            <a href="https://pubmed.ncbi.nlm.nih.gov/9228821/"
+              >Nejime &amp; Moore (1997), threshold elevation, recruitment and reduced frequency
+              selectivity</a
+            >
+          </li>
+          <li>
+            <a href="https://doi.org/10.1101/cshperspect.a033522"
+              >Ashmore (2019), outer hair cells and electromotility</a
+            >
+          </li>
+          <li>
+            <a href="https://doi.org/10.1016/0378-5955(90)90170-T"
+              >Glasberg &amp; Moore (1990), the ERB auditory-filter basis</a
+            >
+          </li>
+        </ol>
       </section>
     </main>
     <script type="module" src="./main.ts"></script>
