@@ -87,6 +87,134 @@ main {
   max-width: 34rem;
 }
 
+/* Orientation screen composition (CLAUDE.md: "Guided orientation" -> first
+   orientation screen): the local ear-cutaway illustration paired with the
+   WHO hook, and an accessible hotspot placed over the cochlea in that
+   illustration. One unified composition, not a dashboard of cards. */
+
+.orientation-composition {
+  display: grid;
+  grid-template-columns: 65% 35%;
+  gap: 1.5rem;
+  align-items: center;
+  margin: 1.25rem 0;
+}
+
+.orientation-hero {
+  position: relative;
+  aspect-ratio: 1536 / 1024;
+  background: var(--ear-hero-bg);
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+.orientation-hero-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* The cochlea's position within assets/ear-cutaway.png, as fractions of the
+   image's own box (not the viewport) --- recalibrate these custom properties
+   after rendered inspection if the hotspot drifts off the coil. The button
+   itself is just the ring's hit target: transparent, sized to the ring, so
+   the anatomy underneath stays visible. The visible label is a separate,
+   quiet child positioned below it, not a background filling the button. */
+.cochlea-hotspot {
+  --cochlea-hotspot-x: 78%;
+  --cochlea-hotspot-y: 51%;
+  --cochlea-hotspot-size: 104px;
+
+  position: absolute;
+  left: var(--cochlea-hotspot-x);
+  top: var(--cochlea-hotspot-y);
+  width: var(--cochlea-hotspot-size);
+  height: var(--cochlea-hotspot-size);
+  transform: translate(-50%, -50%);
+  padding: 0;
+  font: inherit;
+  color: var(--text);
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.cochlea-hotspot-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1.5px solid rgb(255 255 255 / 65%);
+  box-shadow: 0 0 0 1px rgb(124 255 196 / 35%);
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease,
+    transform 150ms ease;
+}
+
+.cochlea-hotspot-ring::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1.5px solid rgb(255 255 255 / 55%);
+  animation: cochlea-hotspot-pulse 2.4s ease-out infinite;
+}
+
+.cochlea-hotspot:hover .cochlea-hotspot-ring {
+  border-color: rgb(255 255 255 / 90%);
+  box-shadow: 0 0 0 1px rgb(124 255 196 / 55%);
+}
+
+.cochlea-hotspot:active .cochlea-hotspot-ring {
+  transform: scale(0.94);
+}
+
+@keyframes cochlea-hotspot-pulse {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.6;
+  }
+
+  70% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+
+  100% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+}
+
+.cochlea-hotspot-label {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.2rem 0.55rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  color: var(--text);
+  background: rgb(8 16 35 / 70%);
+  border-radius: 0.3rem;
+}
+
+.orientation-hook {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.orientation-bridge {
+  color: var(--text-muted);
+  font-size: 0.9375rem;
+  margin: 0;
+}
+
 h1 {
   font-size: 1.75rem;
   letter-spacing: 0.01em;
@@ -498,6 +626,11 @@ a {
   .spectrum-bar {
     transition: none;
   }
+
+  .cochlea-hotspot-ring::after {
+    animation: none;
+    opacity: 0;
+  }
 }
 
 /* Stage 3 spectrum bars ("Hear what the gap removes") --- a restrained
@@ -754,6 +887,19 @@ a {
 
   .gap-boundaries {
     flex-direction: column;
+  }
+
+  .orientation-composition {
+    grid-template-columns: 1fr;
+  }
+
+  .cochlea-hotspot {
+    --cochlea-hotspot-size: 80px;
+  }
+
+  .cochlea-hotspot-label {
+    padding: 0.15rem 0.45rem;
+    font-size: 0.6875rem;
   }
 }
 

@@ -333,18 +333,12 @@ function initExperience(): void {
     explorerPanel!.hidden = state === "orientation" || state === "cochlea-focus";
   }
 
-  // Keyboard activation for Enter/Space is handled explicitly (matching the
-  // gap-compare control elsewhere in this file) rather than relying on a
-  // browser's native <button> keyboard-to-click behaviour, which the test
-  // environment doesn't simulate.
+  // These are native <button> elements, so the browser already turns Enter
+  // and Space into a "click" --- wiring both events here would fire the
+  // transition twice per keyboard activation. Rely on native activation only.
   function bindActivation(button: HTMLButtonElement | null, handler: () => void): void {
     if (!button) return;
     button.addEventListener("click", handler);
-    button.addEventListener("keydown", (event) => {
-      if (event.key !== "Enter" && event.key !== " ") return;
-      event.preventDefault();
-      handler();
-    });
   }
 
   bindActivation(exploreButton, () => {

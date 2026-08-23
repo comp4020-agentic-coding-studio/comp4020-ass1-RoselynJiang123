@@ -142,7 +142,20 @@ describe("Assignment 1: Hearing Is a Map, Not a Volume Knob", () => {
       const button = document.querySelector<HTMLButtonElement>('[data-testid="explore-cochlea"]');
       expect(button, 'expected a [data-testid="explore-cochlea"] element').not.toBeNull();
       expect(button!.tagName.toLowerCase()).toBe("button");
-      expect(button!.textContent?.trim()).toBe("Explore the cochlea");
+      expect(accessibleName(button!)).toBe("Explore the cochlea");
+    });
+
+    it('the "Explore the cochlea" hotspot has an accessible name distinct from its visible label', async () => {
+      vi.resetModules();
+      await import("../main");
+
+      const button = document.querySelector<HTMLButtonElement>('[data-testid="explore-cochlea"]');
+      expect(button, 'expected a [data-testid="explore-cochlea"] element').not.toBeNull();
+      expect(accessibleName(button!)).toBe("Explore the cochlea");
+
+      const label = button!.querySelector<HTMLElement>('[data-testid="cochlea-hotspot-label"]');
+      expect(label, "expected a dedicated visible-label element inside the hotspot").not.toBeNull();
+      expect(label!.textContent?.trim()).toBe("Explore cochlea");
     });
 
     it('activating "Explore the cochlea" enters cochlea-focus', async () => {
@@ -195,7 +208,36 @@ describe("Assignment 1: Hearing Is a Map, Not a Volume Knob", () => {
       expect(root?.getAttribute("data-experience-state")).toBe("find");
     });
 
-    it("activates orientation controls via keyboard (Enter and Space)", async () => {
+    it("orientation/cochlea-focus controls are real <button> elements with the correct accessible name", async () => {
+      vi.resetModules();
+      await import("../main");
+
+      const explore = document.querySelector<HTMLButtonElement>('[data-testid="explore-cochlea"]');
+      expect(explore, 'expected a [data-testid="explore-cochlea"] element').not.toBeNull();
+      expect(explore!.tagName.toLowerCase()).toBe("button");
+      expect(accessibleName(explore!)).toBe("Explore the cochlea");
+
+      const skip = document.querySelector<HTMLButtonElement>('[data-testid="skip-to-map"]');
+      expect(skip, 'expected a [data-testid="skip-to-map"] element').not.toBeNull();
+      expect(skip!.tagName.toLowerCase()).toBe("button");
+      expect(skip!.textContent?.trim()).toBe("Skip to the interactive map");
+
+      clickButton("explore-cochlea");
+      const unfold = document.querySelector<HTMLButtonElement>('[data-testid="unfold-cochlea"]');
+      expect(unfold, 'expected a [data-testid="unfold-cochlea"] element').not.toBeNull();
+      expect(unfold!.tagName.toLowerCase()).toBe("button");
+      expect(unfold!.textContent?.trim()).toBe("Unfold the cochlea");
+    });
+
+    // jsdom does not simulate a native <button>'s default Enter/Space-to-click
+    // activation, so a synthetic keydown here cannot stand in for real
+    // keyboard activation --- that is verified manually in-browser instead
+    // (Tab/Enter/Space), per CLAUDE.md's keyboard-equivalence rule. What this
+    // locks down is the regression it replaces: application code must not
+    // attach its own keydown handler that performs the transition a second
+    // time. One physical activation must produce exactly one logical
+    // transition, via the native click path only.
+    it("does not run a transition from a keydown event --- native click is the only activation path", async () => {
       vi.resetModules();
       await import("../main");
 
@@ -204,16 +246,13 @@ describe("Assignment 1: Hearing Is a Map, Not a Volume Knob", () => {
       explore!.dispatchEvent(
         new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }),
       );
-      expect(document.querySelector("main")?.getAttribute("data-experience-state")).toBe(
-        "cochlea-focus",
-      );
-
-      const unfold = document.querySelector<HTMLButtonElement>('[data-testid="unfold-cochlea"]');
-      expect(unfold, 'expected a [data-testid="unfold-cochlea"] element').not.toBeNull();
-      unfold!.dispatchEvent(
+      explore!.dispatchEvent(
         new KeyboardEvent("keydown", { key: " ", bubbles: true, cancelable: true }),
       );
-      expect(document.querySelector("main")?.getAttribute("data-experience-state")).toBe("find");
+
+      expect(document.querySelector("main")?.getAttribute("data-experience-state")).toBe(
+        "orientation",
+      );
     });
 
     it("does not advance state on resize or animation-completion events", async () => {
@@ -243,6 +282,78 @@ describe("Assignment 1: Hearing Is a Map, Not a Volume Knob", () => {
       enterFind();
 
       expect(control!.value).toBe(initialValue);
+      expect(isToneActive()).toBe(false);
+    });
+
+    // Step 3 (CLAUDE.md: "Guided orientation" -> first orientation screen):
+    // ear cutaway -> WHO hook -> accessible cochlea hotspot.
+    it('shows the main title and "Follow the sound into the cochlea" heading on a fresh load', () => {
+      const heading = document.querySelector("h1");
+      expect(heading?.textContent?.trim()).toBe("Hearing Is a Map, Not a Volume Knob");
+
+      const orientationHeading = document.querySelector(".orientation-heading");
+      expect(orientationHeading?.textContent?.trim()).toBe("Follow the sound into the cochlea");
+    });
+
+    it("states the exact WHO hook wording, linked to the WHO fact sheet", () => {
+      expect(document.body.textContent).toMatch(
+        /Over 1 billion young adults are at risk of permanent, avoidable hearing loss due to\s+unsafe listening practices\./,
+      );
+
+      const link = document.querySelector<HTMLAnchorElement>(".evidence-line a");
+      expect(link, "expected a WHO fact sheet link inside .evidence-line").not.toBeNull();
+      expect(link!.getAttribute("href")).toBe(
+        "https://www.who.int/news-room/fact-sheets/detail/deafness-and-hearing-loss",
+      );
+    });
+
+    it("loads the ear cutaway from a local repository asset, not a remote URL", () => {
+      const image = document.querySelector<HTMLImageElement>('[data-testid="orientation-ear-image"]');
+      expect(image, 'expected a [data-testid="orientation-ear-image"] element').not.toBeNull();
+
+      const src = image!.getAttribute("src") ?? "";
+      expect(src).toMatch(/^\.?\/?assets\//);
+      expect(src).not.toMatch(/^https?:\/\//);
+    });
+
+    it("describes the ear cutaway as schematic/generated and identifies the cochlea", () => {
+      const image = document.querySelector<HTMLImageElement>('[data-testid="orientation-ear-image"]');
+      expect(image, 'expected a [data-testid="orientation-ear-image"] element').not.toBeNull();
+
+      const alt = image!.getAttribute("alt") ?? "";
+      expect(alt.toLowerCase()).toMatch(/schematic|generated/);
+      expect(alt.toLowerCase()).toContain("cochlea");
+    });
+
+    it('places the "Explore the cochlea" hotspot over the ear illustration', () => {
+      const hero = document.querySelector('[data-testid="orientation-hero"]');
+      expect(hero, 'expected a [data-testid="orientation-hero"] element').not.toBeNull();
+
+      const hotspot = hero!.querySelector<HTMLButtonElement>('[data-testid="explore-cochlea"]');
+      expect(hotspot, "expected the explore-cochlea hotspot inside the ear illustration").not.toBeNull();
+      expect(hotspot!.tagName.toLowerCase()).toBe("button");
+      expect(accessibleName(hotspot!)).toBe("Explore the cochlea");
+    });
+
+    it("does not advance state when the ear image finishes loading or animating", async () => {
+      vi.resetModules();
+      await import("../main");
+
+      const image = document.querySelector('[data-testid="orientation-ear-image"]');
+      image?.dispatchEvent(new Event("load", { bubbles: true }));
+      image?.dispatchEvent(new Event("animationend", { bubbles: true }));
+
+      const root = document.querySelector("main");
+      expect(root?.getAttribute("data-experience-state")).toBe("orientation");
+    });
+
+    it("renders the orientation screen without starting audio or changing frequency from its declared default", async () => {
+      vi.resetModules();
+      await import("../main");
+
+      const control = document.querySelector<HTMLInputElement>('[data-testid="frequency-control"]');
+      expect(control, 'expected a [data-testid="frequency-control"] element').not.toBeNull();
+      expect(control!.value).toBe(control!.getAttribute("value"));
       expect(isToneActive()).toBe(false);
     });
   });

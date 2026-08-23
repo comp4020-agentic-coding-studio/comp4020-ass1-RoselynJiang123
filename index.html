@@ -15,18 +15,46 @@
       <p class="intro">
         Your cochlea turns frequency into place. Sensorineural damage can leave gaps in that map.
       </p>
-      <p class="evidence-line">
-        Over 1 billion young adults are at risk of permanent, avoidable hearing loss from unsafe
-        listening, according to the
-        <a href="https://www.who.int/news-room/fact-sheets/detail/deafness-and-hearing-loss"
-          >World Health Organization</a
-        >.
-      </p>
 
       <section class="orientation-panel" data-testid="orientation-panel">
         <h2 class="orientation-heading">Follow the sound into the cochlea</h2>
+
+        <div class="orientation-composition">
+          <div class="orientation-hero" data-testid="orientation-hero">
+            <img
+              class="orientation-hero-image"
+              data-testid="orientation-ear-image"
+              src="./assets/ear-cutaway.png"
+              alt="Schematic, project-generated cutaway illustration of the ear, showing sound travelling from the outer ear to the coiled cochlea deep inside."
+            />
+            <button
+              type="button"
+              class="cochlea-hotspot"
+              data-testid="explore-cochlea"
+              aria-label="Explore the cochlea"
+            >
+              <span class="cochlea-hotspot-ring" aria-hidden="true"></span>
+              <span class="cochlea-hotspot-label" data-testid="cochlea-hotspot-label" aria-hidden="true"
+                >Explore cochlea</span
+              >
+            </button>
+          </div>
+
+          <div class="orientation-hook">
+            <p class="evidence-line">
+              Over 1 billion young adults are at risk of permanent, avoidable hearing loss due to
+              unsafe listening practices.
+              <a href="https://www.who.int/news-room/fact-sheets/detail/deafness-and-hearing-loss"
+                >WHO fact sheet</a
+              >
+            </p>
+            <p class="orientation-bridge">
+              To understand what can be lost, first follow sound into the cochlea.
+            </p>
+          </div>
+        </div>
+
         <div class="orientation-actions">
-          <button type="button" data-testid="explore-cochlea">Explore the cochlea</button>
           <button type="button" data-testid="skip-to-map">Skip to the interactive map</button>
         </div>
       </section>
