@@ -250,6 +250,23 @@ in-gap are never visually conflated. Copy near the gap controls must keep
 saying this is a simplified acoustic model of frequency-dependent attenuation,
 never a reproduction of an individual's hearing or of real sensorineural loss.
 
+### Stage 3 rule
+
+"Hear what the gap removes" plays exactly one project-owned local recording
+(`assets/voice.m4a`, supplied by the student, never generated, downloaded or
+substituted) immediately followed by one deterministic, code-synthesised
+melody (fixed notes in `melody.ts`, additive harmonics, same on every run) ---
+never a song, upload or microphone input. The 24 visible bars are schematic
+ERB-grouped analysis bands (`spectrum.ts`) aggregating real `AnalyserNode`
+energy, drawn inside the existing unfolded map, never a second chart, and
+never described as literal auditory filters. The A/B control
+(`gap-compare`) is momentary only --- held (pointer or Space/Enter) to route
+the same sequence through Stage 2's fixed attenuation filters, released to
+restore the dry signal immediately; it is never a click-toggle. As with
+Stage 2, holding it never claims to reproduce an individual's hearing or a
+complete simulation of sensorineural loss --- only that the same sound is
+playing with one frequency region attenuated.
+
 ### Process discipline
 
 - Don't invent `PROCESS.md` or reflections entries before events actually

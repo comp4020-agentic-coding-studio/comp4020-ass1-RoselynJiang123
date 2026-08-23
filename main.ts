@@ -23,6 +23,8 @@ import {
   isDisplayPositionInGap,
   isFrequencyInGap,
 } from "./gap";
+import { type SpectrumBand, aggregateBandEnergies, buildSpectrumBands } from "./spectrum";
+import { getDemoAnalyser, setDemoGapFilters, setDemoWet, startDemo, stopDemo } from "./demo";
 
 const MAP_LEFT_X = 60;
 const MAP_RIGHT_X = 740;
@@ -40,10 +42,24 @@ const REFERENCE_LABEL_COLLISION_THRESHOLD = 30;
 const REFERENCE_LABEL_YIELD_OFFSET = 22;
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 
+// Stage 3 spectrum bars share the membrane's own vertical band (see
+// ENVELOPE_BASELINE_Y/ENVELOPE_AMPLITUDE above) and are inserted immediately
+// after the membrane path in index.html, so they paint behind the wave,
+// reference marks, outer-hair-cell layer and labels that follow it.
+const SPECTRUM_BASELINE_Y = 172;
+const SPECTRUM_MAX_BAR_HEIGHT = 64;
+const SPECTRUM_IDLE_BAR_HEIGHT = 3;
+const SPECTRUM_BAR_WIDTH = 14;
+
 interface OuterHairCellCluster {
   index: number;
   displayPosition: number;
   element: SVGGElement;
+}
+
+interface SpectrumBar {
+  band: SpectrumBand;
+  element: SVGRectElement;
 }
 
 interface ReferenceMark {
@@ -223,6 +239,75 @@ function updateActiveOuterHairCells(clusters: OuterHairCellCluster[], displayPos
   }
 }
 
+// Stage 3's 24 ERB-grouped bars (spectrum.ts's buildSpectrumBands), laid out
+// on the same Greenwood x-axis as everything else on the map. Bars start at
+// a quiet baseline height and are only ever raised by real analyser energy
+// (see updateSpectrumBarEnergies below) --- never by decorative animation.
+function layOutSpectrumBars(svg: SVGSVGElement): SpectrumBar[] {
+  const layer = svg.querySelector<SVGGElement>('[data-testid="spectrum-bars"]');
+  if (!layer) return [];
+
+  const bars: SpectrumBar[] = [];
+  for (const band of buildSpectrumBands()) {
+    const centerX = MAP_LEFT_X + band.displayPosition * (MAP_RIGHT_X - MAP_LEFT_X);
+
+    const bar = document.createElementNS(SVG_NAMESPACE, "rect");
+    bar.setAttribute("class", "spectrum-bar");
+    bar.setAttribute("data-band-index", String(band.index));
+    bar.setAttribute("data-center-hz", band.centerFrequencyHz.toFixed(1));
+    bar.setAttribute("x", String(centerX - SPECTRUM_BAR_WIDTH / 2));
+    bar.setAttribute("width", String(SPECTRUM_BAR_WIDTH));
+    bar.setAttribute("y", String(SPECTRUM_BASELINE_Y - SPECTRUM_IDLE_BAR_HEIGHT));
+    bar.setAttribute("height", String(SPECTRUM_IDLE_BAR_HEIGHT));
+
+    layer.append(bar);
+    bars.push({ band, element: bar });
+  }
+  return bars;
+}
+
+function setSpectrumBarHeight(bar: SpectrumBar, height: number): void {
+  const clampedHeight = Math.max(SPECTRUM_IDLE_BAR_HEIGHT, Math.min(SPECTRUM_MAX_BAR_HEIGHT, height));
+  bar.element.setAttribute("y", String(SPECTRUM_BASELINE_Y - clampedHeight));
+  bar.element.setAttribute("height", String(clampedHeight));
+}
+
+function resetSpectrumBarsToBaseline(bars: SpectrumBar[]): void {
+  for (const bar of bars) setSpectrumBarHeight(bar, SPECTRUM_IDLE_BAR_HEIGHT);
+}
+
+// Marks bars whose centre frequency falls inside the current gap so the
+// selected region stays visually identifiable on the spectrum row, the same
+// way updateOuterHairCellGapState marks the outer-hair-cell layer.
+function updateSpectrumBarGapState(bars: SpectrumBar[], gap: GapSelection | null): void {
+  for (const bar of bars) {
+    const inGap = gap !== null && isFrequencyInGap(bar.band.centerFrequencyHz, gap);
+    if (inGap) {
+      bar.element.setAttribute("data-in-gap", "true");
+    } else {
+      bar.element.removeAttribute("data-in-gap");
+    }
+  }
+}
+
+// Reads the analyser's current FFT-bin magnitudes and raises each bar to its
+// ERB-grouped energy --- this is the only thing that ever raises a bar above
+// its idle baseline, so no bar moves while nothing is playing.
+function updateSpectrumBarEnergies(bars: SpectrumBar[], analyser: AnalyserNode): void {
+  const magnitudes = new Uint8Array(analyser.frequencyBinCount);
+  analyser.getByteFrequencyData(magnitudes);
+  const energies = aggregateBandEnergies(
+    bars.map((bar) => bar.band),
+    magnitudes,
+    analyser.context.sampleRate,
+    analyser.fftSize,
+  );
+  bars.forEach((bar, index) => {
+    const energy = energies[index] ?? 0;
+    setSpectrumBarHeight(bar, (energy / 255) * SPECTRUM_MAX_BAR_HEIGHT);
+  });
+}
+
 function init(): void {
   const control = document.querySelector<HTMLInputElement>('[data-testid="frequency-control"]');
   const readout = document.querySelector<HTMLOutputElement>('[data-testid="frequency-readout"]');
@@ -238,6 +323,11 @@ function init(): void {
   const clearGapButton = document.querySelector<HTMLButtonElement>('[data-testid="clear-gap"]');
   const gapLowerInput = document.querySelector<HTMLInputElement>('[data-testid="gap-lower-frequency"]');
   const gapUpperInput = document.querySelector<HTMLInputElement>('[data-testid="gap-upper-frequency"]');
+  const demoPlayButton = document.querySelector<HTMLButtonElement>('[data-testid="demo-play"]');
+  const gapCompareButton = document.querySelector<HTMLButtonElement>('[data-testid="gap-compare"]');
+  const demoPhaseStatus = document.querySelector<HTMLOutputElement>('[data-testid="demo-phase-status"]');
+  const demoRouteStatus = document.querySelector<HTMLOutputElement>('[data-testid="demo-route-status"]');
+  const demoErrorEl = document.querySelector<HTMLElement>('[data-testid="demo-error"]');
 
   if (!control || !readout || !diagram || !peak || !envelope) return;
 
@@ -251,6 +341,7 @@ function init(): void {
 
   const referenceMarks = layOutReferenceMarks(diagramEl);
   const outerHairCellClusters = layOutOuterHairCells(diagramEl);
+  const spectrumBars = layOutSpectrumBars(diagramEl);
 
   let gap: GapSelection | null = null;
 
@@ -313,7 +404,11 @@ function init(): void {
     }
   });
 
-  window.addEventListener("pagehide", stopTone);
+  window.addEventListener("pagehide", () => {
+    stopTone();
+    stopDemo();
+    if (energyAnimationFrame !== null) cancelAnimationFrame(energyAnimationFrame);
+  });
 
   if (gapSurface && gapSelectionRect && gapReadout && clearGapButton && gapLowerInput && gapUpperInput) {
     const surfaceEl = gapSurface;
@@ -354,15 +449,19 @@ function init(): void {
       gap = next;
       renderGapGeometry(gap);
       updateOuterHairCellGapState(gap);
+      updateSpectrumBarGapState(spectrumBars, gap);
 
       if (gap) {
         gapReadoutEl.textContent = formatGapReadout(gap);
         setGapFilters(gapToFilterStages(gap));
+        setDemoGapFilters(gapToFilterStages(gap));
       } else {
         gapReadoutEl.textContent = "No gap selected";
         setGapFilters(null);
+        setDemoGapFilters(null);
       }
 
+      updateGapCompareAvailability();
       render();
     }
 
@@ -435,6 +534,148 @@ function init(): void {
     clearGapButton.addEventListener("click", () => {
       setGap(null);
       syncGapInputs(null);
+    });
+  }
+
+  // Stage 3 "Hear what the gap removes" demo wiring. `demoUiPlaying` is an
+  // optimistic UI-level flag, deliberately independent of demo.ts's own
+  // isDemoPlaying(): jsdom has no Web Audio implementation, so the visible
+  // play/stop state, phase status and A/B availability must all hold even
+  // when the underlying AudioContext can never be constructed
+  // (CLAUDE.md: "the educational result must hold without sound").
+  let demoUiPlaying = false;
+  let energyAnimationFrame: number | null = null;
+
+  function updateGapCompareAvailability(): void {
+    if (!gapCompareButton) return;
+    gapCompareButton.disabled = !(gap !== null && demoUiPlaying);
+  }
+
+  function setDemoRouteStatus(throughGap: boolean): void {
+    if (demoRouteStatus) demoRouteStatus.textContent = throughGap ? "Through the gap" : "Original";
+    gapCompareButton?.setAttribute("aria-pressed", throughGap ? "true" : "false");
+  }
+
+  function startEnergyLoop(): void {
+    function tick(): void {
+      const analyser = getDemoAnalyser();
+      if (!analyser) {
+        energyAnimationFrame = null;
+        return;
+      }
+      updateSpectrumBarEnergies(spectrumBars, analyser);
+      energyAnimationFrame = requestAnimationFrame(tick);
+    }
+    if (energyAnimationFrame === null) {
+      energyAnimationFrame = requestAnimationFrame(tick);
+    }
+  }
+
+  function stopEnergyLoop(): void {
+    if (energyAnimationFrame !== null) {
+      cancelAnimationFrame(energyAnimationFrame);
+      energyAnimationFrame = null;
+    }
+    resetSpectrumBarsToBaseline(spectrumBars);
+  }
+
+  function showDemoError(message: string): void {
+    if (!demoErrorEl) return;
+    demoErrorEl.textContent = message;
+    demoErrorEl.hidden = false;
+  }
+
+  function hideDemoError(): void {
+    if (!demoErrorEl) return;
+    demoErrorEl.hidden = true;
+    demoErrorEl.textContent = "";
+  }
+
+  function endDemoPlayback(): void {
+    demoUiPlaying = false;
+    if (demoPlayButton) demoPlayButton.textContent = "Play example";
+    if (demoPhaseStatus) demoPhaseStatus.textContent = "";
+    setDemoRouteStatus(false);
+    stopEnergyLoop();
+    updateGapCompareAvailability();
+  }
+
+  demoPlayButton?.addEventListener("click", () => {
+    if (demoUiPlaying) {
+      stopDemo();
+      endDemoPlayback();
+      return;
+    }
+
+    hideDemoError();
+    demoUiPlaying = true;
+    demoPlayButton.textContent = "Stop example";
+    setDemoRouteStatus(false);
+    updateGapCompareAvailability();
+    startEnergyLoop();
+
+    void startDemo(gap ? gapToFilterStages(gap) : null, {
+      onPhaseChange(phase) {
+        if (demoPhaseStatus) demoPhaseStatus.textContent = phase === "speech" ? "Speech" : "Melody";
+      },
+      onEnded() {
+        endDemoPlayback();
+      },
+      onError(message) {
+        // Deliberately doesn't call endDemoPlayback(): a browser/environment
+        // that can't construct real audio (including jsdom in tests) must
+        // still leave the visible demo --- phase status, spectrum bars' gap
+        // marking, and the hold-to-compare status text --- usable, per
+        // CLAUDE.md's "the educational result must hold without sound". Only
+        // the never-going-to-arrive analyser loop is stood down.
+        showDemoError(message);
+        stopEnergyLoop();
+      },
+    });
+  });
+
+  // Momentary hold-to-compare, never a click-toggle: every pointer path that
+  // can end a press (up/cancel/leave/blur/losing page visibility) restores
+  // dry audio, and Space/Enter provide the required keyboard-operable
+  // equivalent to a pointer hold (CLAUDE.md: "holding a pointer must not be
+  // the only way to trigger it").
+  if (gapCompareButton) {
+    const compareButton = gapCompareButton;
+
+    function engageWet(): void {
+      if (compareButton.disabled) return;
+      setDemoWet(true);
+      setDemoRouteStatus(true);
+    }
+
+    function releaseWet(): void {
+      setDemoWet(false);
+      setDemoRouteStatus(false);
+    }
+
+    compareButton.addEventListener("pointerdown", (event) => {
+      if (typeof event.button === "number" && event.button !== 0) return;
+      event.preventDefault();
+      engageWet();
+    });
+    compareButton.addEventListener("pointerup", releaseWet);
+    compareButton.addEventListener("pointercancel", releaseWet);
+    compareButton.addEventListener("pointerleave", releaseWet);
+    compareButton.addEventListener("blur", releaseWet);
+
+    compareButton.addEventListener("keydown", (event) => {
+      if (event.key !== " " && event.key !== "Enter") return;
+      event.preventDefault();
+      engageWet();
+    });
+    compareButton.addEventListener("keyup", (event) => {
+      if (event.key !== " " && event.key !== "Enter") return;
+      event.preventDefault();
+      releaseWet();
+    });
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") releaseWet();
     });
   }
 

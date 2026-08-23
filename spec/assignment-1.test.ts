@@ -291,4 +291,115 @@ describe("Assignment 1: Hearing Is a Map, Not a Volume Knob", () => {
       expect(readout?.textContent).toMatch(/no gap/i);
     });
   });
+
+  describe("Stage 3: Hear what the gap removes", () => {
+    function dispatchType(element: Element, type: string): void {
+      element.dispatchEvent(new Event(type, { bubbles: true, cancelable: true }));
+    }
+
+    function dispatchKey(element: Element, type: string, key: string): void {
+      element.dispatchEvent(new KeyboardEvent(type, { key, bubbles: true, cancelable: true }));
+    }
+
+    it("renders exactly 24 spectrum bars inside the map, in Greenwood order", async () => {
+      vi.resetModules();
+      await import("../main");
+
+      const container = document.querySelector('[data-testid="spectrum-bars"]');
+      expect(container, 'expected a [data-testid="spectrum-bars"] element').not.toBeNull();
+
+      const bars = Array.from(container!.querySelectorAll<SVGRectElement>("[data-band-index]"));
+      expect(bars.length).toBe(24);
+
+      const readings = bars.map((bar) => ({
+        hz: Number(bar.dataset.centerHz),
+        x: Number(bar.getAttribute("x")),
+      }));
+
+      for (const reading of readings) {
+        expect(Number.isFinite(reading.hz)).toBe(true);
+        expect(Number.isFinite(reading.x)).toBe(true);
+      }
+
+      // High frequency bars sit to the left (smaller x); low frequency bars
+      // sit to the right (larger x) --- same orientation as everything else
+      // on this map.
+      const byX = [...readings].sort((a, b) => a.x - b.x);
+      for (let i = 1; i < byX.length; i += 1) {
+        expect(byX[i].hz).toBeLessThan(byX[i - 1].hz);
+      }
+    });
+
+    it("disables the compare control until a gap exists", async () => {
+      vi.resetModules();
+      await import("../main");
+
+      const compareButton = document.querySelector<HTMLButtonElement>('[data-testid="gap-compare"]');
+      expect(compareButton, 'expected a [data-testid="gap-compare"] element').not.toBeNull();
+      expect(compareButton!.disabled).toBe(true);
+
+      const playButton = document.querySelector<HTMLButtonElement>('[data-testid="demo-play"]');
+      expect(playButton, 'expected a [data-testid="demo-play"] element').not.toBeNull();
+      playButton!.click();
+
+      expect(compareButton!.disabled).toBe(true);
+    });
+
+    it("holding the compare control (pointer or keyboard) switches to 'Through the gap'; releasing restores 'Original'", async () => {
+      vi.resetModules();
+      await import("../main");
+
+      setGapFrequencies(2000, 4000);
+
+      const playButton = document.querySelector<HTMLButtonElement>('[data-testid="demo-play"]');
+      const compareButton = document.querySelector<HTMLButtonElement>('[data-testid="gap-compare"]');
+      const routeStatus = document.querySelector('[data-testid="demo-route-status"]');
+      expect(playButton, 'expected a [data-testid="demo-play"] element').not.toBeNull();
+      expect(compareButton, 'expected a [data-testid="gap-compare"] element').not.toBeNull();
+      expect(routeStatus, 'expected a [data-testid="demo-route-status"] element').not.toBeNull();
+
+      playButton!.click();
+      expect(compareButton!.disabled).toBe(false);
+      expect(routeStatus!.textContent).toMatch(/Original/);
+
+      dispatchType(compareButton!, "pointerdown");
+      expect(routeStatus!.textContent).toMatch(/Through the gap/);
+      expect(compareButton!.getAttribute("aria-pressed")).toBe("true");
+
+      dispatchType(compareButton!, "pointerup");
+      expect(routeStatus!.textContent).toMatch(/Original/);
+      expect(compareButton!.getAttribute("aria-pressed")).toBe("false");
+
+      dispatchKey(compareButton!, "keydown", "Enter");
+      expect(routeStatus!.textContent).toMatch(/Through the gap/);
+
+      dispatchKey(compareButton!, "keyup", "Enter");
+      expect(routeStatus!.textContent).toMatch(/Original/);
+
+      dispatchKey(compareButton!, "keydown", " ");
+      expect(routeStatus!.textContent).toMatch(/Through the gap/);
+
+      dispatchKey(compareButton!, "keyup", " ");
+      expect(routeStatus!.textContent).toMatch(/Original/);
+    });
+
+    it("losing the hold (pointercancel, pointerleave or blur) restores 'Original'", async () => {
+      vi.resetModules();
+      await import("../main");
+
+      setGapFrequencies(2000, 4000);
+      const playButton = document.querySelector<HTMLButtonElement>('[data-testid="demo-play"]');
+      const compareButton = document.querySelector<HTMLButtonElement>('[data-testid="gap-compare"]');
+      const routeStatus = document.querySelector('[data-testid="demo-route-status"]');
+      playButton!.click();
+
+      for (const releaseType of ["pointercancel", "pointerleave", "blur"]) {
+        dispatchType(compareButton!, "pointerdown");
+        expect(routeStatus!.textContent).toMatch(/Through the gap/);
+        dispatchType(compareButton!, releaseType);
+        expect(routeStatus!.textContent).toMatch(/Original/);
+        expect(compareButton!.getAttribute("aria-pressed")).toBe("false");
+      }
+    });
+  });
 });

@@ -61,6 +61,13 @@
               L740,162 C520,190 260,184 60,172 Z
             " />
 
+            <g
+              data-testid="spectrum-bars"
+              class="spectrum-bars"
+              aria-hidden="true"
+              role="presentation"
+            ></g>
+
             <g class="reference-marks">
               <g class="reference-mark" data-ref-hz="8000">
                 <line class="reference-tick" x1="0" y1="116" x2="0" y2="128" />
@@ -223,6 +230,30 @@
             />
           </div>
         </fieldset>
+      </div>
+
+      <div class="demo-control">
+        <p class="demo-copy">
+          The same sound is playing. This simplified model attenuates only the frequency region
+          you selected.
+        </p>
+        <p class="spectrum-caption">
+          The 24 bars on the map above are a schematic ERB-grouped spectrum, not individual
+          auditory filters.
+        </p>
+        <div class="demo-status-row">
+          <output data-testid="demo-phase-status" aria-live="polite" class="demo-status"></output>
+          <output data-testid="demo-route-status" aria-live="polite" class="demo-status"
+            >Original</output
+          >
+        </div>
+        <div class="demo-buttons">
+          <button type="button" data-testid="demo-play">Play example</button>
+          <button type="button" data-testid="gap-compare" aria-pressed="false" disabled>
+            Hold to hear through the gap
+          </button>
+        </div>
+        <p class="demo-error" data-testid="demo-error" role="alert" hidden></p>
       </div>
       </section>
     </main>

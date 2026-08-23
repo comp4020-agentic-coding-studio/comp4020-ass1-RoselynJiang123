@@ -438,9 +438,31 @@ a {
   .ohc-body,
   .ohc-plate,
   .ohc-stereocilia,
-  .gap-selection {
+  .gap-selection,
+  .spectrum-bar {
     transition: none;
   }
+}
+
+/* Stage 3 spectrum bars ("Hear what the gap removes") --- a restrained
+   teal reading behind the wave/labels/OHC layer (see main.ts's paint-order
+   comment). A bar's height only ever comes from real analyser energy; the
+   short transition below smooths that real data for motion-tolerant
+   visitors and is disabled above, so reduced-motion visitors read each
+   update directly, never a fabricated animation. */
+
+.spectrum-bar {
+  fill: var(--line);
+  opacity: 0.35;
+  transition: y 80ms linear, height 80ms linear;
+}
+
+.spectrum-bar[data-in-gap="true"] {
+  fill: var(--text-muted);
+  opacity: 0.5;
+  stroke: var(--accent-warm);
+  stroke-width: 1;
+  stroke-dasharray: 2 2;
 }
 
 /* Frequency control */
@@ -575,6 +597,19 @@ a {
   cursor: pointer;
 }
 
+.demo-buttons button {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0.6rem 1.25rem;
+  font: inherit;
+  font-weight: 600;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 0.4rem;
+  cursor: pointer;
+}
+
 .sound-control button:hover {
   background: var(--wave);
 }
@@ -586,6 +621,22 @@ a {
 .gap-readout-row button:hover {
   border-color: var(--wave);
   color: var(--wave);
+}
+
+.demo-buttons button:hover {
+  border-color: var(--wave);
+  color: var(--wave);
+}
+
+.demo-buttons button[aria-pressed="true"] {
+  background: var(--accent-warm);
+  border-color: var(--accent-warm);
+  color: var(--bg);
+}
+
+.demo-buttons button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .gap-boundaries {
@@ -648,4 +699,52 @@ a {
   .gap-boundaries {
     flex-direction: column;
   }
+}
+
+/* Stage 3 demo control ("Hear what the gap removes") */
+
+.demo-control {
+  margin: 1.75rem 0;
+}
+
+.demo-copy {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin: 0 0 0.5rem;
+  max-width: 34rem;
+}
+
+.spectrum-caption {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  margin: 0 0 0.75rem;
+  max-width: 34rem;
+}
+
+.demo-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.demo-status {
+  font-variant-numeric: tabular-nums;
+  min-height: 1.6rem;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--line-dim);
+  border-radius: 0.35rem;
+  background: var(--bg-panel);
+}
+
+.demo-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.demo-error {
+  font-size: 0.875rem;
+  color: var(--accent-warm);
+  margin-top: 0.75rem;
 }
