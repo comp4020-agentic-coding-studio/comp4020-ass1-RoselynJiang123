@@ -27,6 +27,7 @@ import { MAX_FREQUENCY_HZ, MIN_FREQUENCY_HZ, frequencyToSliderPosition } from ".
 import { isToneActive } from "../audio";
 
 const SOURCE_HTML = readFileSync(resolve("index.html"), "utf8");
+const SOURCE_CSS = readFileSync(resolve("styles.css"), "utf8");
 
 function loadPage(): void {
   const parsed = new DOMParser().parseFromString(SOURCE_HTML, "text/html");
@@ -355,6 +356,303 @@ describe("Assignment 1: Hearing Is a Map, Not a Volume Knob", () => {
       expect(control, 'expected a [data-testid="frequency-control"] element').not.toBeNull();
       expect(control!.value).toBe(control!.getAttribute("value"));
       expect(isToneActive()).toBe(false);
+    });
+  });
+
+  // Step 5 (CLAUDE.md: "Guided orientation" -> connecting the coiled
+  // orientation map to the existing straight map). The state transition
+  // itself is already covered above --- these specs pin the separate,
+  // purely-visual unfold presentation: it must never be able to gate or
+  // delay the state change it decorates, it must never clone either inline
+  // SVG, and its cleanup (whichever of animationend/fallback-timer/repeat
+  // fires) must be safe and never touch experience state.
+  describe("Unfold transition (visual only, never gates state)", () => {
+    // The fallback cleanup timer in main.ts is 1450ms; every fake-timer test
+    // below advances well past that so it exercises the fallback path
+    // itself, not a race with it.
+    const PAST_FALLBACK_TIMER_MS = 1600;
+
+    function enterCochleaFocusAndUnfold(): HTMLElement {
+      clickButton("explore-cochlea");
+      clickButton("unfold-cochlea");
+      const panel = document.querySelector<HTMLElement>('[data-testid="cochlea-focus-panel"]');
+      expect(panel, 'expected a [data-testid="cochlea-focus-panel"] element').not.toBeNull();
+      return panel!;
+    }
+
+    function bridgeElements(): { caption: Element | null; guideLine: Element | null } {
+      return {
+        caption: document.querySelector('[data-testid="unfold-caption"]'),
+        guideLine: document.querySelector('[data-testid="unfold-guide-line"]'),
+      };
+    }
+
+    it("changes state to find synchronously, without waiting for any animation event", async () => {
+      vi.resetModules();
+      await import("../main");
+
+      enterCochleaFocusAndUnfold();
+
+      // No animationend/transitionend dispatched, no timers advanced --- the
+      // state must already be "find" from the click alone.
+      expect(document.querySelector("main")?.getAttribute("data-experience-state")).toBe("find");
+    });
+
+    it("adds a transition marker to the cochlea-focus panel and reveal marker to the explorer panel only when Unfold is activated", async () => {
+      vi.resetModules();
+      await import("../main");
+
+      const panel = document.querySelector<HTMLElement>('[data-testid="cochlea-focus-panel"]');
+      const explorer = document.querySelector<HTMLElement>('[data-testid="explorer-panel"]');
+      expect(panel, 'expected a [data-testid="cochlea-focus-panel"] element').not.toBeNull();
+      expect(explorer, 'expected a [data-testid="explorer-panel"] element').not.toBeNull();
+      expect(panel!.className).not.toMatch(/unfold/i);
+      expect(explorer!.className).not.toMatch(/unfold/i);
+
+      clickButton("explore-cochlea");
+      expect(panel!.className).not.toMatch(/unfold/i);
+
+      clickButton("unfold-cochlea");
+      expect(panel!.className).toMatch(/is-unfold-transition/);
+      expect(explorer!.className).toMatch(/is-unfold-reveal/);
+    });
+
+    it("creates the transition caption and guide line only during the Unfold presentation, aria-hidden and non-interactive", async () => {
+      vi.resetModules();
+      await import("../main");
+
+      clickButton("explore-cochlea");
+      expect(bridgeElements().caption).toBeNull();
+      expect(bridgeElements().guideLine).toBeNull();
+
+      clickButton("unfold-cochlea");
+      const { caption, guideLine } = bridgeElements();
+      expect(caption, 'expected a [data-testid="unfold-caption"] element').not.toBeNull();
+      expect(guideLine, 'expected a [data-testid="unfold-guide-line"] element').not.toBeNull();
+
+      expect(caption!.getAttribute("aria-hidden")).toBe("true");
+      expect(guideLine!.getAttribute("aria-hidden")).toBe("true");
+      expect(caption!.hasAttribute("tabindex")).toBe(false);
+      expect(["a", "button", "input"].includes(caption!.tagName.toLowerCase())).toBe(false);
+      expect(caption!.textContent).toBe("Same map, unfolded");
+    });
+
+    it('"Skip to the interactive map" enters find without running the unfold presentation or creating the caption/guide line', async () => {
+      vi.resetModules();
+      await import("../main");
+
+      const panel = document.querySelector<HTMLElement>('[data-testid="cochlea-focus-panel"]');
+      expect(panel, 'expected a [data-testid="cochlea-focus-panel"] element').not.toBeNull();
+
+      enterFind();
+
+      expect(document.querySelector("main")?.getAttribute("data-experience-state")).toBe("find");
+      expect(panel!.className).not.toMatch(/unfold/i);
+      expect(panel!.hasAttribute("aria-hidden")).toBe(false);
+      expect(panel!.hasAttribute("inert")).toBe(false);
+      expect(bridgeElements().caption).toBeNull();
+      expect(bridgeElements().guideLine).toBeNull();
+    });
+
+    it("a synthetic animationend during the transition does not change the experience state, and cleans up the caption/guide line", async () => {
+      vi.resetModules();
+      await import("../main");
+
+      const panel = enterCochleaFocusAndUnfold();
+      panel.dispatchEvent(new Event("animationend", { bubbles: true }));
+      panel.dispatchEvent(new Event("animationend", { bubbles: true }));
+
+      expect(document.querySelector("main")?.getAttribute("data-experience-state")).toBe("find");
+      expect(bridgeElements().caption).toBeNull();
+      expect(bridgeElements().guideLine).toBeNull();
+    });
+
+    it("a synthetic transitionend during the transition does not change the experience state", async () => {
+      vi.resetModules();
+      await import("../main");
+
+      const panel = enterCochleaFocusAndUnfold();
+      expect(() =>
+        panel.dispatchEvent(new Event("transitionend", { bubbles: true })),
+      ).not.toThrow();
+
+      expect(document.querySelector("main")?.getAttribute("data-experience-state")).toBe("find");
+    });
+
+    it("the fallback cleanup timer removes the transition marker and the caption/guide line without changing state", async () => {
+      vi.useFakeTimers();
+      try {
+        vi.resetModules();
+        await import("../main");
+
+        const panel = enterCochleaFocusAndUnfold();
+        expect(panel.className).toMatch(/unfold/i);
+        expect(bridgeElements().caption).not.toBeNull();
+        expect(bridgeElements().guideLine).not.toBeNull();
+
+        vi.advanceTimersByTime(PAST_FALLBACK_TIMER_MS);
+
+        expect(panel.className).not.toMatch(/unfold/i);
+        expect(bridgeElements().caption).toBeNull();
+        expect(bridgeElements().guideLine).toBeNull();
+        expect(document.querySelector("main")?.getAttribute("data-experience-state")).toBe("find");
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("marks the outgoing cochlea-focus panel non-interactive and hidden from accessibility during the transition", async () => {
+      vi.resetModules();
+      await import("../main");
+
+      const panel = enterCochleaFocusAndUnfold();
+      expect(panel.getAttribute("aria-hidden")).toBe("true");
+      expect(panel.hasAttribute("inert")).toBe(true);
+    });
+
+    it("does not clone or duplicate either inline SVG during the transition, and the bridge elements are not SVG", async () => {
+      vi.resetModules();
+      await import("../main");
+      clickButton("explore-cochlea");
+
+      expect(document.querySelectorAll('[data-testid="cochlea-focus-art"] svg').length).toBe(2);
+
+      clickButton("unfold-cochlea");
+
+      expect(document.querySelectorAll('[data-testid="cochlea-focus-art"] svg').length).toBe(2);
+      const { caption, guideLine } = bridgeElements();
+      expect(caption!.tagName.toLowerCase()).not.toBe("svg");
+      expect(guideLine!.tagName.toLowerCase()).not.toBe("svg");
+    });
+
+    it("keeps every rendered DOM id unique during and after the transition", async () => {
+      vi.useFakeTimers();
+      try {
+        vi.resetModules();
+        await import("../main");
+
+        enterCochleaFocusAndUnfold();
+        let ids = Array.from(document.querySelectorAll("[id]")).map((el) => el.id);
+        expect(new Set(ids).size).toBe(ids.length);
+
+        vi.advanceTimersByTime(PAST_FALLBACK_TIMER_MS);
+        ids = Array.from(document.querySelectorAll("[id]")).map((el) => el.id);
+        expect(new Set(ids).size).toBe(ids.length);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("does not throw when both animationend and the fallback timer fire for the same transition", async () => {
+      vi.useFakeTimers();
+      try {
+        vi.resetModules();
+        await import("../main");
+
+        const panel = enterCochleaFocusAndUnfold();
+        expect(() => {
+          panel.dispatchEvent(new Event("animationend", { bubbles: true }));
+          vi.advanceTimersByTime(PAST_FALLBACK_TIMER_MS);
+          panel.dispatchEvent(new Event("animationend", { bubbles: true }));
+        }).not.toThrow();
+
+        expect(panel.className).not.toMatch(/unfold/i);
+        expect(panel.hasAttribute("aria-hidden")).toBe(false);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("a second activation of Unfold after find is already active does not start another transition or recreate the bridge elements", async () => {
+      vi.resetModules();
+      await import("../main");
+
+      const panel = enterCochleaFocusAndUnfold();
+      const classBefore = panel.className;
+      const { caption: captionBefore, guideLine: guideLineBefore } = bridgeElements();
+
+      clickButton("unfold-cochlea");
+
+      expect(panel.className).toBe(classBefore);
+      const { caption: captionAfter, guideLine: guideLineAfter } = bridgeElements();
+      expect(captionAfter).toBe(captionBefore);
+      expect(guideLineAfter).toBe(guideLineBefore);
+      expect(document.querySelectorAll('[data-testid="unfold-caption"]').length).toBe(1);
+      expect(document.querySelectorAll('[data-testid="unfold-guide-line"]').length).toBe(1);
+    });
+
+    it("preserves the current frequency and keeps audio inactive through the whole unfold transition", async () => {
+      vi.useFakeTimers();
+      try {
+        vi.resetModules();
+        await import("../main");
+
+        const control = document.querySelector<HTMLInputElement>('[data-testid="frequency-control"]');
+        expect(control, 'expected a [data-testid="frequency-control"] element').not.toBeNull();
+        const initialValue = control!.value;
+
+        enterCochleaFocusAndUnfold();
+        vi.advanceTimersByTime(PAST_FALLBACK_TIMER_MS);
+
+        expect(control!.value).toBe(initialValue);
+        expect(isToneActive()).toBe(false);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("under prefers-reduced-motion, enters find immediately without adding the transition marker or the caption/guide line", async () => {
+      const originalMatchMedia = window.matchMedia;
+      window.matchMedia = ((query: string) => ({
+        matches: true,
+        media: query,
+        onchange: null,
+        addListener: () => {},
+        removeListener: () => {},
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        dispatchEvent: () => false,
+      })) as unknown as typeof window.matchMedia;
+
+      try {
+        vi.resetModules();
+        await import("../main");
+
+        const panel = enterCochleaFocusAndUnfold();
+
+        expect(document.querySelector("main")?.getAttribute("data-experience-state")).toBe("find");
+        expect(panel.className).not.toMatch(/unfold/i);
+        expect(panel.hasAttribute("aria-hidden")).toBe(false);
+        expect(panel.hasAttribute("inert")).toBe(false);
+        expect(bridgeElements().caption).toBeNull();
+        expect(bridgeElements().guideLine).toBeNull();
+      } finally {
+        window.matchMedia = originalMatchMedia;
+      }
+    });
+
+    it("no longer uses a large non-uniform flatten transform for the coiled-map artwork", () => {
+      const artworkKeyframes = SOURCE_CSS.match(/@keyframes unfold-artwork-focus\s*{[\s\S]*?\n}/);
+      expect(artworkKeyframes, "expected an unfold-artwork-focus keyframes block").not.toBeNull();
+
+      const scaleCalls = artworkKeyframes![0].match(/scale\(\s*[^)]+\)/g) ?? [];
+      expect(scaleCalls.length).toBeGreaterThan(0);
+
+      for (const call of scaleCalls) {
+        const args = call
+          .slice(call.indexOf("(") + 1, -1)
+          .split(",")
+          .map((value) => Number(value.trim()));
+
+        if (args.length > 1) {
+          // Non-uniform scale (different x/y factors) is exactly the
+          // flatten/stretch metaphor this revision removes.
+          expect(args[0]).toBeCloseTo(args[1], 5);
+        }
+        for (const value of args) {
+          expect(Math.abs(value)).toBeLessThanOrEqual(1.03);
+        }
+      }
     });
   });
 

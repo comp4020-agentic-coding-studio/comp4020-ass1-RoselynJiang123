@@ -326,6 +326,8 @@ function initExperience(): void {
 
   if (!root || !orientationPanel || !cochleaFocusPanel || !explorerPanel) return;
 
+  const experienceStage = document.querySelector<HTMLElement>(".experience-stage");
+
   const coiledMapContainer = cochleaFocusPanel.querySelector<HTMLElement>(
     '[data-testid="coiled-map-illustration"]',
   );
@@ -350,6 +352,66 @@ function initExperience(): void {
     button.addEventListener("click", handler);
   }
 
+  // Step 5 ("Connect the coiled orientation map to the existing straight
+  // interactive map"): a staged visual bridge layered on top of the state
+  // change above, never a cause of it. `applyState()` above has already made
+  // cochleaFocusPanel `hidden` and explorerPanel visible by the time any of
+  // this runs --- these temporary classes and elements only keep the
+  // outgoing panel visually present (via a CSS `[hidden]` override) and
+  // animate the incoming one, while `aria-hidden`/`inert` keep the outgoing
+  // layer out of the accessible and focusable tree throughout. Cleanup is
+  // triggered by whichever of animationend/the fallback timer fires first,
+  // and must be safe to run more than once and never touch `state`.
+  let unfoldFallbackTimer: number | undefined;
+  let unfoldCaption: HTMLParagraphElement | null = null;
+  let unfoldGuideLine: HTMLSpanElement | null = null;
+
+  function clearUnfoldTransition(): void {
+    if (unfoldFallbackTimer !== undefined) {
+      window.clearTimeout(unfoldFallbackTimer);
+      unfoldFallbackTimer = undefined;
+    }
+    cochleaFocusPanel!.classList.remove("is-unfold-transition");
+    cochleaFocusPanel!.removeAttribute("aria-hidden");
+    cochleaFocusPanel!.removeAttribute("inert");
+    explorerPanel!.classList.remove("is-unfold-reveal");
+    unfoldCaption?.remove();
+    unfoldCaption = null;
+    unfoldGuideLine?.remove();
+    unfoldGuideLine = null;
+  }
+
+  function handleUnfoldAnimationEnd(event: Event): void {
+    if (event.target !== cochleaFocusPanel) return;
+    cochleaFocusPanel!.removeEventListener("animationend", handleUnfoldAnimationEnd);
+    clearUnfoldTransition();
+  }
+
+  // The decorative bridge between the two maps: a short caption and a guide
+  // line, created fresh for each presentation and removed by
+  // clearUnfoldTransition. Neither is part of either inline SVG, neither is
+  // exposed as a control, and the caption is never announced as a new
+  // application state --- the state itself already changed, above, before
+  // either of these exists.
+  function createUnfoldBridgeElements(): void {
+    if (!experienceStage) return;
+
+    const caption = document.createElement("p");
+    caption.className = "unfold-caption";
+    caption.dataset.testid = "unfold-caption";
+    caption.setAttribute("aria-hidden", "true");
+    caption.textContent = "Same map, unfolded";
+    experienceStage.append(caption);
+    unfoldCaption = caption;
+
+    const guideLine = document.createElement("span");
+    guideLine.className = "unfold-guide-line";
+    guideLine.dataset.testid = "unfold-guide-line";
+    guideLine.setAttribute("aria-hidden", "true");
+    experienceStage.append(guideLine);
+    unfoldGuideLine = guideLine;
+  }
+
   bindActivation(exploreButton, () => {
     state = nextExperienceState(state, "explore-cochlea");
     applyState();
@@ -359,8 +421,28 @@ function initExperience(): void {
     applyState();
   });
   bindActivation(unfoldButton, () => {
+    const wasCochleaFocus = state === "cochlea-focus";
     state = nextExperienceState(state, "unfold-cochlea");
     applyState();
+
+    if (!wasCochleaFocus || state !== "find") return;
+
+    const reducedMotion =
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reducedMotion) {
+      clearUnfoldTransition();
+      return;
+    }
+
+    cochleaFocusPanel!.classList.add("is-unfold-transition");
+    cochleaFocusPanel!.setAttribute("aria-hidden", "true");
+    cochleaFocusPanel!.setAttribute("inert", "");
+    explorerPanel!.classList.add("is-unfold-reveal");
+    createUnfoldBridgeElements();
+
+    cochleaFocusPanel!.addEventListener("animationend", handleUnfoldAnimationEnd);
+    unfoldFallbackTimer = window.setTimeout(clearUnfoldTransition, 1450);
   });
 
   applyState();

@@ -125,6 +125,192 @@ main {
   height: auto;
 }
 
+/* Step 5 unfold transition (CLAUDE.md: "Guided orientation" -> connecting
+   the coiled orientation map to the existing straight map). A staged visual
+   bridge, not a geometry morph: the coiled map is only ever brightened with
+   a small uniform scale, never redrawn or non-uniformly stretched.
+   `.experience-stage` overlaps the outgoing cochlea-focus panel on the same
+   region the incoming Stage 1 map occupies (position: absolute; inset: 0)
+   so nothing jumps, while a decorative guide line and caption --- created
+   and removed by main.ts, never part of either inline SVG --- make the
+   "same map, unfolded" relationship legible. None of this changes when the
+   underlying [hidden]/data-experience-state actually flips --- see
+   main.ts's initExperience for why that is never gated on this
+   presentation. */
+.experience-stage {
+  position: relative;
+
+  --unfold-total: 1300ms;
+}
+
+.cochlea-focus-panel.is-unfold-transition {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  animation: unfold-panel-fade var(--unfold-total) ease forwards;
+}
+
+/* Overrides the UA [hidden] { display: none } so the outgoing panel stays a
+   visible presentation layer for the duration of its fade-out, even though
+   applyState() has already set its `hidden` property true. */
+.cochlea-focus-panel.is-unfold-transition[hidden] {
+  display: block;
+}
+
+/* Phase A (isolate the map): brighten the coiled map with a small uniform
+   scale only --- a non-uniform stretch/flatten reads as the map breaking
+   apart rather than becoming the straight map. */
+.cochlea-focus-panel.is-unfold-transition [data-testid="coiled-map-illustration"] {
+  animation: unfold-artwork-focus var(--unfold-total) ease forwards;
+}
+
+/* Phase A: fade the outer-hair-cell illustration and the explanatory
+   copy/citations early, well before the rest of the panel fades in phase D,
+   so the coiled map is left as the clear, isolated focus. */
+.cochlea-focus-panel.is-unfold-transition .cochlea-focus-copy,
+.cochlea-focus-panel.is-unfold-transition [data-testid="ohc-illustration"] {
+  animation: unfold-isolate-fade var(--unfold-total) ease forwards;
+}
+
+/* Phase B (explain the relationship): a thin guide line growing from the
+   coiled map toward the straight map's position, and a quiet caption naming
+   the relationship. Both are decorative only (see main.ts's
+   createUnfoldBridgeElements) --- never a coordinate system, never a
+   control. */
+.unfold-guide-line {
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  top: 62%;
+  height: 2px;
+  background: linear-gradient(to right, rgb(124 255 196 / 85%), rgb(255 255 255 / 85%));
+  transform: scaleX(0);
+  transform-origin: left center;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 2;
+  animation: unfold-guide-grow var(--unfold-total) ease forwards;
+}
+
+.unfold-caption {
+  position: absolute;
+  top: 6%;
+  left: 50%;
+  z-index: 2;
+  margin: 0;
+  padding: 0.3rem 0.85rem;
+  font-size: 0.8125rem;
+  color: var(--text);
+  text-align: center;
+  background: rgb(8 16 35 / 75%);
+  border-radius: 999px;
+  opacity: 0;
+  transform: translateX(-50%);
+  pointer-events: none;
+  animation: unfold-caption-fade var(--unfold-total) ease forwards;
+}
+
+/* Phase C (reveal the straight map): the existing, unaltered Stage 1 map
+   revealed progressively left to right so it reads as the same map the
+   guide line pointed toward, not an unrelated full-page flash. */
+.explorer-panel.is-unfold-reveal {
+  animation: unfold-reveal-stage1 var(--unfold-total) ease forwards;
+}
+
+@keyframes unfold-panel-fade {
+  0%,
+  65% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes unfold-artwork-focus {
+  0% {
+    filter: brightness(1);
+    transform: scale(1);
+  }
+
+  20%,
+  65% {
+    filter: brightness(1.12);
+    transform: scale(1.02);
+  }
+
+  100% {
+    filter: brightness(1.12);
+    transform: scale(1.02);
+  }
+}
+
+@keyframes unfold-isolate-fade {
+  0% {
+    opacity: 1;
+  }
+
+  20%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes unfold-guide-grow {
+  0%,
+  15% {
+    opacity: 0;
+    transform: scaleX(0);
+  }
+
+  30% {
+    opacity: 1;
+  }
+
+  50%,
+  65% {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scaleX(1);
+  }
+}
+
+@keyframes unfold-caption-fade {
+  0%,
+  15% {
+    opacity: 0;
+  }
+
+  25%,
+  65% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes unfold-reveal-stage1 {
+  0%,
+  30% {
+    opacity: 0;
+    clip-path: inset(0 100% 0 0);
+  }
+
+  85%,
+  100% {
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
+  }
+}
+
 /* Orientation screen composition (CLAUDE.md: "Guided orientation" -> first
    orientation screen): the local ear-cutaway illustration paired with the
    WHO hook, and an accessible hotspot placed over the cochlea in that
@@ -669,6 +855,20 @@ a {
     animation: none;
     opacity: 0;
   }
+
+  /* Step 5: main.ts already skips creating the transition classes/elements
+     when prefers-reduced-motion matches, but the whole unfold presentation
+     is disabled here too, defensively, in case any of it is ever present ---
+     the state change itself never depends on this animation completing. */
+  .cochlea-focus-panel.is-unfold-transition,
+  .cochlea-focus-panel.is-unfold-transition [data-testid="coiled-map-illustration"],
+  .cochlea-focus-panel.is-unfold-transition .cochlea-focus-copy,
+  .cochlea-focus-panel.is-unfold-transition [data-testid="ohc-illustration"],
+  .explorer-panel.is-unfold-reveal,
+  .unfold-guide-line,
+  .unfold-caption {
+    animation: none;
+  }
 }
 
 /* Stage 3 spectrum bars ("Hear what the gap removes") --- a restrained
@@ -938,6 +1138,10 @@ a {
   .cochlea-focus-art [data-testid="coiled-map-illustration"],
   .cochlea-focus-art [data-testid="ohc-illustration"] {
     grid-column: 1;
+  }
+
+  .experience-stage {
+    --unfold-total: 820ms;
   }
 
   .cochlea-hotspot {
