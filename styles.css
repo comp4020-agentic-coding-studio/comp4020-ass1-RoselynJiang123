@@ -93,27 +93,33 @@ main {
 }
 
 /* Desktop: outer-hair-cell cutaway on the left, coiled frequency map on the
-   right, the map slightly wider --- but the coiled map stays first in the DOM
-   so mobile's required "map, then cells" reading order falls out of normal
-   document flow. Explicit grid-column placement (not `order`) keeps assistive
-   technology and keyboard reading order matching the DOM regardless of the
-   visual swap. */
+   right (slightly wider, since it carries more explanatory labels) --- but
+   the coiled map stays first in the DOM so mobile's required "map, then
+   cells" reading order falls out of normal document flow. Named grid areas
+   (not separate grid-column declarations with automatic row placement, which
+   is what previously left the two illustrations diagonally opposite each
+   other in their own empty quadrants) keep both illustrations pinned to one
+   row regardless of DOM order, while assistive technology and keyboard
+   reading order still follow the DOM. */
 .cochlea-focus-art {
   display: grid;
-  grid-template-columns: 1.15fr 1fr;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  grid-template-areas: "ohc coiled";
+  align-items: start;
   gap: 1rem;
   margin: 1.25rem 0;
 }
 
-.cochlea-focus-art [data-testid="coiled-map-illustration"] {
-  grid-column: 2;
+.cochlea-focus-illustration-coiled {
+  grid-area: coiled;
 }
 
-.cochlea-focus-art [data-testid="ohc-illustration"] {
-  grid-column: 1;
+.cochlea-focus-illustration-ohc {
+  grid-area: ohc;
 }
 
 .cochlea-focus-illustration {
+  min-width: 0;
   overflow: hidden;
   border-radius: 0.75rem;
   background: var(--ear-hero-bg);
@@ -536,6 +542,32 @@ a {
   margin: 0.35rem 0 0;
 }
 
+/* Step 6C: one compact live result --- frequency (the existing output above
+   this block), familiar-sound context, then cochlear position --- so the
+   hierarchy CLAUDE.md requires falls out of plain document order rather than
+   needing three columns or a table. */
+.frequency-context {
+  margin: 0.35rem 0 0;
+}
+
+.frequency-context-sound {
+  margin: 0;
+  font-weight: 600;
+}
+
+.frequency-context-position {
+  margin: 0.15rem 0 0;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+.frequency-context-note {
+  margin: 0.15rem 0 0;
+  font-size: 0.8rem;
+  font-style: italic;
+  color: var(--text-muted);
+}
+
 .diagram-annotation {
   font-size: 10px;
   font-style: italic;
@@ -771,8 +803,19 @@ a {
 
 .gap-selection-surface {
   fill: transparent;
-  cursor: crosshair;
+  cursor: pointer;
   touch-action: none;
+}
+
+/* Cursor differs per map mode (never colour alone) so the same persistent
+   surface reads as three distinct controls: dragging to explore, dragging
+   to select a gap, and a non-editing display in compare. */
+.diagram[data-map-mode="select-gap"] .gap-selection-surface {
+  cursor: crosshair;
+}
+
+.diagram[data-map-mode="display-only"] .gap-selection-surface {
+  cursor: default;
 }
 
 .wave-envelope[data-attenuated="true"] {
@@ -1190,12 +1233,10 @@ a {
   }
 
   .cochlea-focus-art {
-    grid-template-columns: 1fr;
-  }
-
-  .cochlea-focus-art [data-testid="coiled-map-illustration"],
-  .cochlea-focus-art [data-testid="ohc-illustration"] {
-    grid-column: 1;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "coiled"
+      "ohc";
   }
 
   .experience-stage {

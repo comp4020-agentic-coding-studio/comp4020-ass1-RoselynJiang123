@@ -12,14 +12,22 @@
 // exist from first paint regardless of that class, so nothing here depends on
 // the reveal having happened yet.
 
-import { MAX_FREQUENCY_HZ, MIN_FREQUENCY_HZ, frequencyToDisplayPosition, sliderPositionToFrequency } from "./cochlea";
+import {
+  MAX_FREQUENCY_HZ,
+  MIN_FREQUENCY_HZ,
+  frequencyToDisplayPosition,
+  frequencyToSliderPosition,
+  sliderPositionToFrequency,
+} from "./cochlea";
 import { isToneActive, setGapFilters, startTone, stopTone, updateToneFrequency } from "./audio";
+import { frequencyContext, frequencyToPercentFromBase } from "./frequency-context";
 import { type ExperienceEvent, type ExperienceState, nextExperienceState } from "./experience";
 import {
   type GapSelection,
   clampDisplayPosition,
   createGapSelection,
   createGapSelectionFromFrequencies,
+  displayPositionToFrequency,
   gapToFilterStages,
   isDisplayPositionInGap,
   isFrequencyInGap,
@@ -72,6 +80,19 @@ interface ReferenceMark {
 
 function formatFrequency(frequencyHz: number): string {
   return `${Math.round(frequencyHz).toLocaleString("en-US")} Hz`;
+}
+
+function formatPositionReadout(percentFromBase: number): string {
+  return `Strongest response: ${percentFromBase}% from the base`;
+}
+
+// Feeds the native slider's aria-valuetext (Step 6C, CLAUDE.md: "The native
+// slider must remain the primary keyboard-accessible frequency control") so
+// its own accessible value already carries frequency, familiar-sound context
+// and cochlear position together --- the visible frequency-context block
+// deliberately isn't a second live region duplicating this same information.
+function formatFrequencyValueText(frequencyHz: number, context: string, percentFromBase: number): string {
+  return `${Math.round(frequencyHz)} hertz. ${context}. Strongest response ${percentFromBase} percent from the base.`;
 }
 
 function frequencyToMapX(frequencyHz: number): number {
@@ -507,13 +528,18 @@ function init(): void {
   const peak = document.querySelector<SVGCircleElement>('[data-testid="travelling-wave-peak"]');
   const envelope = document.querySelector<SVGPathElement>(".wave-envelope");
   const instruction = document.querySelector<HTMLElement>('[data-testid="diagram-instruction"]');
+  const frequencyContextSound = document.querySelector<HTMLElement>('[data-testid="frequency-context-sound"]');
+  const frequencyContextPosition = document.querySelector<HTMLElement>(
+    '[data-testid="frequency-context-position"]',
+  );
   const toneToggle = document.querySelector<HTMLButtonElement>('[data-testid="tone-toggle"]');
   const peakCallout = document.querySelector<SVGGElement>('[data-testid="peak-callout"]');
   const gapControlPanel = document.querySelector<HTMLElement>('[data-testid="gap-control"]');
   const demoControlPanel = document.querySelector<HTMLElement>('[data-testid="demo-control"]');
-  const gapSurface = document.querySelector<SVGRectElement>('[data-testid="gap-selection-surface"]');
+  const gapSurface = document.querySelector<SVGRectElement>('[data-testid="map-interaction-surface"]');
   const gapSelectionRect = document.querySelector<SVGRectElement>('[data-testid="gap-selection"]');
   const gapReadout = document.querySelector<HTMLOutputElement>('[data-testid="gap-readout"]');
+  const editGapButton = document.querySelector<HTMLButtonElement>('[data-testid="edit-gap"]');
   const clearGapButton = document.querySelector<HTMLButtonElement>('[data-testid="clear-gap"]');
   const gapLowerInput = document.querySelector<HTMLInputElement>('[data-testid="gap-lower-frequency"]');
   const gapUpperInput = document.querySelector<HTMLInputElement>('[data-testid="gap-upper-frequency"]');
@@ -523,6 +549,20 @@ function init(): void {
   const demoRouteStatus = document.querySelector<HTMLOutputElement>('[data-testid="demo-route-status"]');
   const demoErrorEl = document.querySelector<HTMLElement>('[data-testid="demo-error"]');
 
+  // The persistent straight map has exactly three interaction modes, keyed
+  // off the same guided experience state Stage 1-3's progressive disclosure
+  // already tracks (CLAUDE.md: "explicit Explore, Select-Gap and Compare
+  // modes"). Exposed on the SVG as `data-map-mode` so it's inspectable and
+  // testable without reaching into this closure.
+  type MapMode = "explore-frequency" | "select-gap" | "display-only";
+
+  function currentMapMode(): MapMode {
+    const state = experience?.getState() ?? "find";
+    if (state === "gap") return "select-gap";
+    if (state === "compare") return "display-only";
+    return "explore-frequency";
+  }
+
   // Stage 2 and Stage 3's progressive disclosure (CLAUDE.md: "Guide visitors
   // through Stages 1-3"): each panel's `hidden` attribute follows the guided
   // experience state, not just CSS, so an unlocked-later panel is genuinely
@@ -531,14 +571,15 @@ function init(): void {
     const currentState = experience?.getState() ?? "find";
     if (gapControlPanel) gapControlPanel.hidden = currentState !== "gap" && currentState !== "compare";
     if (demoControlPanel) demoControlPanel.hidden = currentState !== "compare";
+    if (editGapButton) editGapButton.hidden = currentState !== "compare";
+    if (diagram) diagram.dataset.mapMode = currentMapMode();
+    updateModeInstruction();
   }
 
   function advanceExperience(event: ExperienceEvent): void {
     experience?.advance(event);
     updateStageVisibility();
   }
-
-  updateStageVisibility();
 
   if (!control || !readout || !diagram || !peak || !envelope) return;
 
@@ -565,6 +606,15 @@ function init(): void {
     const displayPosition = frequencyToDisplayPosition(frequencyHz);
     const centerX = frequencyToMapX(frequencyHz);
     readoutEl.textContent = formatFrequency(frequencyHz);
+
+    // Step 6C: one shared frequency-context result, kept in sync with the
+    // readout above because both are driven from the same currentFrequency()
+    // read --- there is no separate context state to fall out of step.
+    const context = frequencyContext(frequencyHz);
+    const percentFromBase = frequencyToPercentFromBase(frequencyHz);
+    if (frequencyContextSound) frequencyContextSound.textContent = context;
+    if (frequencyContextPosition) frequencyContextPosition.textContent = formatPositionReadout(percentFromBase);
+    controlEl.setAttribute("aria-valuetext", formatFrequencyValueText(frequencyHz, context, percentFromBase));
     peakEl.setAttribute("cx", String(centerX));
     envelopeEl.setAttribute("d", buildEnvelopePath(centerX));
     peakCalloutLeader?.setAttribute("x1", String(centerX));
@@ -588,14 +638,27 @@ function init(): void {
   }
 
   let hasUnfolded = false;
+
+  // One short instruction for the current map mode (CLAUDE.md: "Do not
+  // display all three instructions simultaneously"). A no-op before the map
+  // unfolds, so it never overwrites the static pre-unfold prompt.
+  function updateModeInstruction(): void {
+    if (!instruction || !hasUnfolded) return;
+    const mode = currentMapMode();
+    if (mode === "select-gap") {
+      instruction.textContent = "Drag across the cochlea to make one gap.";
+    } else if (mode === "display-only") {
+      instruction.textContent = "Gap shown · use Edit gap to change it.";
+    } else {
+      instruction.textContent = "Drag along the cochlea to find a sound.";
+    }
+  }
+
   function revealUnfoldedMap(): void {
     if (hasUnfolded) return;
     hasUnfolded = true;
     diagramEl.classList.add("is-unfolded");
-    if (instruction) {
-      instruction.textContent =
-        "The cochlea is shown uncoiled so its frequency map can be read left to right.";
-    }
+    updateModeInstruction();
   }
 
   controlEl.addEventListener("input", () => {
@@ -705,35 +768,77 @@ function init(): void {
       return mapXToDisplayPosition(viewBoxX);
     }
 
-    let dragStartPosition: number | null = null;
+    // Reads the slider's position from the same Greenwood conversion the map
+    // uses (gap.ts's displayPositionToFrequency) --- no second approximate
+    // frequency-position formula. Sets .value directly (not via a dispatched
+    // "input" event) so this never re-enters this same handler.
+    function applyFrequencyFromPosition(displayPosition: number): void {
+      const frequencyHz = displayPositionToFrequency(displayPosition);
+      controlEl.value = String(frequencyToSliderPosition(frequencyHz));
+      revealUnfoldedMap();
+      render();
+    }
+
+    // The map mode is locked once, at pointerdown, into activeGestureMode and
+    // reread from that local for the rest of the gesture --- never from a
+    // live currentMapMode() --- so a mid-drag stage unlock (explore-frequency
+    // advancing find -> gap) can never change what the in-progress gesture
+    // does. display-only intentionally has no branch below: dragging or
+    // clicking in compare mode is a deliberate no-op.
+    let activeGestureMode: MapMode | null = null;
+    let gestureStartPosition = 0;
 
     surfaceEl.addEventListener("pointerdown", (event) => {
       if (event.button !== 0) return;
-      dragStartPosition = displayPositionFromClientX(event.clientX);
+      const mode = currentMapMode();
+      activeGestureMode = mode;
+      const position = displayPositionFromClientX(event.clientX);
+      gestureStartPosition = position;
       surfaceEl.setPointerCapture?.(event.pointerId);
-      renderGapGeometry(createGapSelection(dragStartPosition, dragStartPosition));
       event.preventDefault();
+
+      if (mode === "explore-frequency") {
+        applyFrequencyFromPosition(position);
+      } else if (mode === "select-gap") {
+        renderGapGeometry(createGapSelection(position, position));
+      }
     });
 
     surfaceEl.addEventListener("pointermove", (event) => {
-      if (dragStartPosition === null) return;
-      const current = displayPositionFromClientX(event.clientX);
-      renderGapGeometry(createGapSelection(dragStartPosition, current));
+      if (activeGestureMode === null) return;
+      const position = displayPositionFromClientX(event.clientX);
+      if (activeGestureMode === "explore-frequency") {
+        applyFrequencyFromPosition(position);
+      } else if (activeGestureMode === "select-gap") {
+        renderGapGeometry(createGapSelection(gestureStartPosition, position));
+      }
     });
 
     surfaceEl.addEventListener("pointerup", (event) => {
-      if (dragStartPosition === null) return;
-      const endPosition = displayPositionFromClientX(event.clientX);
+      if (activeGestureMode === null) return;
+      const mode = activeGestureMode;
+      const position = displayPositionFromClientX(event.clientX);
       surfaceEl.releasePointerCapture?.(event.pointerId);
-      const finalized = createGapSelection(dragStartPosition, endPosition);
-      dragStartPosition = null;
-      setGap(finalized);
-      syncGapInputs(finalized);
+      activeGestureMode = null;
+
+      if (mode === "explore-frequency") {
+        applyFrequencyFromPosition(position);
+        // Fires only on gesture completion --- mirrors the native slider's
+        // "input" event only ever meaning a completed user action, and keeps
+        // a single explore gesture from also creating a gap mid-drag.
+        advanceExperience("explore-frequency");
+      } else if (mode === "select-gap") {
+        const finalized = createGapSelection(gestureStartPosition, position);
+        setGap(finalized);
+        syncGapInputs(finalized);
+      }
     });
 
     surfaceEl.addEventListener("pointercancel", () => {
-      dragStartPosition = null;
-      renderGapGeometry(gap);
+      if (activeGestureMode === "select-gap") {
+        renderGapGeometry(gap);
+      }
+      activeGestureMode = null;
     });
 
     // Deliberately does not call syncGapInputs: this handler fires from the
@@ -752,11 +857,21 @@ function init(): void {
     lowerInputEl.addEventListener("input", commitGapFromInputs);
     upperInputEl.addEventListener("input", commitGapFromInputs);
 
+    // Only Clear gap deletes the interval --- it is the one control that
+    // ever calls setGap(null). Edit gap (below) deliberately never does.
     clearGapButton.addEventListener("click", () => {
       setGap(null);
       syncGapInputs(null);
+      advanceExperience("clear-gap");
     });
   }
+
+  // Edit gap only moves the experience (and map mode) back to gap: the
+  // existing gap, filters and inputs are untouched, so the next drag can
+  // replace or adjust the interval already shown.
+  editGapButton?.addEventListener("click", () => {
+    advanceExperience("edit-gap");
+  });
 
   // Stage 3 "Hear what the gap removes" demo wiring. `demoUiPlaying` is an
   // optimistic UI-level flag, deliberately independent of demo.ts's own
@@ -900,6 +1015,11 @@ function init(): void {
     });
   }
 
+  // Deferred to here (not immediately after its own definition): it calls
+  // updateModeInstruction(), which reads `hasUnfolded` --- a `let` not
+  // initialized until further up this same function --- so calling any
+  // earlier would throw before that declaration runs.
+  updateStageVisibility();
   render();
 }
 

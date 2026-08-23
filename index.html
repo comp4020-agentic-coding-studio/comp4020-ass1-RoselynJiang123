@@ -74,8 +74,14 @@
           <a href="https://doi.org/10.1101/cshperspect.a033522">Ashmore (2019)</a>
         </p>
         <div class="cochlea-focus-art" data-testid="cochlea-focus-art">
-          <div class="cochlea-focus-illustration" data-testid="coiled-map-illustration"></div>
-          <div class="cochlea-focus-illustration" data-testid="ohc-illustration"></div>
+          <div
+            class="cochlea-focus-illustration cochlea-focus-illustration-coiled"
+            data-testid="coiled-map-illustration"
+          ></div>
+          <div
+            class="cochlea-focus-illustration cochlea-focus-illustration-ohc"
+            data-testid="ohc-illustration"
+          ></div>
         </div>
         <button type="button" data-testid="unfold-cochlea">Unfold the cochlea</button>
       </section>
@@ -102,6 +108,7 @@
         <svg
           class="diagram"
           data-testid="cochlear-diagram"
+          data-map-mode="explore-frequency"
           viewBox="0 0 800 300"
           role="img"
           aria-labelledby="cochlear-map-title cochlear-map-desc"
@@ -210,7 +217,7 @@
               aria-hidden="true"
             />
             <rect
-              data-testid="gap-selection-surface"
+              data-testid="map-interaction-surface"
               class="gap-selection-surface"
               x="60"
               y="100"
@@ -240,6 +247,30 @@
           </svg>
         </div>
         </div>
+        <div class="frequency-control">
+          <label for="frequency-control">Frequency</label>
+          <input
+            type="range"
+            id="frequency-control"
+            data-testid="frequency-control"
+            min="0"
+            max="1"
+            step="0.001"
+            value="0.5"
+          />
+          <output for="frequency-control" data-testid="frequency-readout" aria-live="polite"
+            >1,000 Hz</output
+          >
+        </div>
+        <div class="frequency-context" data-testid="frequency-context">
+          <p class="frequency-context-sound" data-testid="frequency-context-sound">
+            Much of the body of vowels and voices
+          </p>
+          <p class="frequency-context-position" data-testid="frequency-context-position">
+            Strongest response: 50% from the base
+          </p>
+          <p class="frequency-context-note">Approximate context&mdash;not a strict frequency boundary.</p>
+        </div>
         <figcaption class="diagram-note" data-testid="diagram-instruction">
           Drag the frequency to unfold the cochlea
         </figcaption>
@@ -248,22 +279,6 @@
           region beneath the travelling-wave peak.
         </p>
       </figure>
-
-      <div class="frequency-control">
-        <label for="frequency-control">Frequency</label>
-        <input
-          type="range"
-          id="frequency-control"
-          data-testid="frequency-control"
-          min="0"
-          max="1"
-          step="0.001"
-          value="0.5"
-        />
-        <output for="frequency-control" data-testid="frequency-readout" aria-live="polite"
-          >1,000 Hz</output
-        >
-      </div>
 
       <div class="sound-control">
         <p class="sound-control-safety">
@@ -286,6 +301,7 @@
           <output for="gap-lower-frequency gap-upper-frequency" data-testid="gap-readout" aria-live="polite"
             >No gap selected</output
           >
+          <button type="button" data-testid="edit-gap" hidden>Edit gap</button>
           <button type="button" data-testid="clear-gap">Clear gap</button>
         </div>
         <details class="gap-exact-entry" data-testid="gap-exact-details">

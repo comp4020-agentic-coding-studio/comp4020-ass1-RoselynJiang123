@@ -23,8 +23,9 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { MAX_FREQUENCY_HZ, MIN_FREQUENCY_HZ, frequencyToSliderPosition } from "../cochlea";
+import { MAX_FREQUENCY_HZ, MIN_FREQUENCY_HZ, frequencyToSliderPosition, sliderPositionToFrequency } from "../cochlea";
 import { isToneActive } from "../audio";
+import { frequencyContext, frequencyToPercentFromBase } from "../frequency-context";
 
 const SOURCE_HTML = readFileSync(resolve("index.html"), "utf8");
 const SOURCE_CSS = readFileSync(resolve("styles.css"), "utf8");
@@ -102,6 +103,66 @@ function clickButton(testId: string): void {
 
 function enterFind(): void {
   clickButton("skip-to-map");
+}
+
+// Step 6B: the persistent map is now itself a pointer-driven control. jsdom
+// supports constructing real PointerEvents (clientX/clientY/pointerId/button)
+// --- setPointerCapture is what's missing, and main.ts already calls it via
+// optional chaining, so it's safe here. The one real gap is
+// getBoundingClientRect(), which jsdom defaults to a zero-size rect; stubbing
+// it to a 1:1 match of the diagram's viewBox lets clientX map onto the same
+// viewBox coordinates main.ts's own displayPositionFromClientX expects.
+const MAP_VIEWPORT_RECT: DOMRect = {
+  width: 800,
+  height: 300,
+  top: 0,
+  left: 0,
+  right: 800,
+  bottom: 300,
+  x: 0,
+  y: 0,
+  toJSON() {
+    return {};
+  },
+};
+
+function stubDiagramRect(): void {
+  const diagram = document.querySelector<SVGSVGElement>('[data-testid="cochlear-diagram"]');
+  expect(diagram, 'expected a [data-testid="cochlear-diagram"] element').not.toBeNull();
+  diagram!.getBoundingClientRect = () => MAP_VIEWPORT_RECT;
+}
+
+function mapSurface(): SVGRectElement {
+  const surface = document.querySelector<SVGRectElement>('[data-testid="map-interaction-surface"]');
+  expect(surface, 'expected a [data-testid="map-interaction-surface"] element').not.toBeNull();
+  return surface!;
+}
+
+function mapMode(): string | null {
+  const diagram = document.querySelector<SVGSVGElement>('[data-testid="cochlear-diagram"]');
+  return diagram?.getAttribute("data-map-mode") ?? null;
+}
+
+function mapPointerEvent(type: string, clientX: number): PointerEvent {
+  return new PointerEvent(type, {
+    clientX,
+    clientY: 150,
+    pointerId: 1,
+    button: 0,
+    bubbles: true,
+    cancelable: true,
+  });
+}
+
+function currentFrequencyHz(): number {
+  const readout = document.querySelector('[data-testid="frequency-readout"]');
+  const text = readout?.textContent ?? "";
+  return Number(text.replace(/[^\d]/g, ""));
+}
+
+function gapSelectionWidth(): number {
+  const selection = document.querySelector('[data-testid="gap-selection"]');
+  return Number(selection?.getAttribute("width"));
 }
 
 describe("Assignment 1: Hearing Is a Map, Not a Volume Knob", () => {
@@ -731,6 +792,34 @@ describe("Assignment 1: Hearing Is a Map, Not a Volume Knob", () => {
       expect(new Set(ids).size).toBe(ids.length);
     });
 
+    // Section 2A: the diagonal-layout bug was caused by grid-column rules with
+    // no matching grid-row, so the structural guard here is DOM shape (both
+    // wrappers direct children of the same grid, coiled before OHC, each with
+    // its own class hook) rather than any brittle column-width/pixel assertion
+    // --- the actual side-by-side placement is confirmed by rendered inspection.
+    it("places both illustration wrappers as direct children of the artwork grid, coiled map first", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterCochleaFocus();
+
+      const art = document.querySelector('[data-testid="cochlea-focus-art"]');
+      expect(art, 'expected a [data-testid="cochlea-focus-art"] element').not.toBeNull();
+
+      const coiledWrapper = document.querySelector('[data-testid="coiled-map-illustration"]');
+      const ohcWrapper = document.querySelector('[data-testid="ohc-illustration"]');
+      expect(coiledWrapper, 'expected a [data-testid="coiled-map-illustration"] element').not.toBeNull();
+      expect(ohcWrapper, 'expected a [data-testid="ohc-illustration"] element').not.toBeNull();
+
+      const children = Array.from(art!.children);
+      expect(children).toContain(coiledWrapper);
+      expect(children).toContain(ohcWrapper);
+      expect(children.indexOf(coiledWrapper!)).toBeLessThan(children.indexOf(ohcWrapper!));
+
+      expect(coiledWrapper!.classList.contains("cochlea-focus-illustration-coiled")).toBe(true);
+      expect(ohcWrapper!.classList.contains("cochlea-focus-illustration-ohc")).toBe(true);
+      expect(coiledWrapper!.className).not.toBe(ohcWrapper!.className);
+    });
+
     it("the coiled map retains its data-frequency nodes", async () => {
       vi.resetModules();
       await import("../main");
@@ -1094,17 +1183,25 @@ describe("Assignment 1: Hearing Is a Map, Not a Volume Knob", () => {
       expect(demoControl!.hidden).toBe(false);
     });
 
-    it("never regresses a later stage back into hiding (e.g. clearing an unlocked gap)", async () => {
+    // Step 6B note: this previously asserted that clearing an unlocked gap
+    // left Stage 3 visible. Clear gap is now an explicit, user-triggered
+    // regression back to gap mode (CLAUDE.md's Step 6B "Edit gap and Clear
+    // gap"), so that assertion was superseded --- see the "Clear gap"
+    // coverage in "Unified map interaction" below. "Never regresses" still
+    // holds for re-triggering the same forward-unlock event, which this test
+    // now checks instead.
+    it("never regresses a stage back into hiding by re-triggering its own unlock event", async () => {
       vi.resetModules();
       await import("../main");
       enterFind();
       setFrequency(1000);
       setGapFrequencies(2000, 4000);
 
-      const clearButton = document.querySelector<HTMLButtonElement>('[data-testid="clear-gap"]');
-      clearButton!.click();
+      setFrequency(2000);
 
+      const gapControl = document.querySelector<HTMLElement>('[data-testid="gap-control"]');
       const demoControl = document.querySelector<HTMLElement>('[data-testid="demo-control"]');
+      expect(gapControl!.hidden).toBe(false);
       expect(demoControl!.hidden).toBe(false);
     });
 
@@ -1151,6 +1248,566 @@ describe("Assignment 1: Hearing Is a Map, Not a Volume Knob", () => {
 
       expect(details!.querySelector('[data-testid="gap-lower-frequency"]')).not.toBeNull();
       expect(details!.querySelector('[data-testid="gap-upper-frequency"]')).not.toBeNull();
+    });
+  });
+
+  describe("Unified map interaction: explore, gap and compare modes", () => {
+    it("exposes explore-frequency as the map mode in find", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterFind();
+
+      expect(mapMode()).toBe("explore-frequency");
+    });
+
+    it("exposes select-gap as the map mode once gap is unlocked", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterFind();
+      setFrequency(1000);
+
+      expect(mapMode()).toBe("select-gap");
+    });
+
+    it("exposes display-only as the map mode once a gap is committed", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterFind();
+      setFrequency(1000);
+      setGapFrequencies(2000, 4000);
+
+      expect(mapMode()).toBe("display-only");
+    });
+
+    it("clicking the map in find changes the current frequency", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterFind();
+      stubDiagramRect();
+
+      const before = currentFrequencyHz();
+      const surface = mapSurface();
+      surface.dispatchEvent(mapPointerEvent("pointerdown", 200));
+      surface.dispatchEvent(mapPointerEvent("pointerup", 200));
+
+      expect(currentFrequencyHz()).not.toBe(before);
+    });
+
+    it("dragging in find continuously updates the frequency before pointerup", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterFind();
+      stubDiagramRect();
+
+      const surface = mapSurface();
+      surface.dispatchEvent(mapPointerEvent("pointerdown", 200));
+      const midDrag = currentFrequencyHz();
+      surface.dispatchEvent(mapPointerEvent("pointermove", 600));
+      const afterMove = currentFrequencyHz();
+
+      expect(afterMove).not.toBe(midDrag);
+      surface.dispatchEvent(mapPointerEvent("pointerup", 600));
+    });
+
+    it("a left-side map interaction produces a higher frequency than a right-side one", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterFind();
+      stubDiagramRect();
+      const surface = mapSurface();
+
+      surface.dispatchEvent(mapPointerEvent("pointerdown", 200));
+      surface.dispatchEvent(mapPointerEvent("pointerup", 200));
+      const leftFrequency = currentFrequencyHz();
+
+      loadPage();
+      vi.resetModules();
+      await import("../main");
+      enterFind();
+      stubDiagramRect();
+      const surfaceAgain = mapSurface();
+      surfaceAgain.dispatchEvent(mapPointerEvent("pointerdown", 600));
+      surfaceAgain.dispatchEvent(mapPointerEvent("pointerup", 600));
+      const rightFrequency = currentFrequencyHz();
+
+      expect(leftFrequency).toBeGreaterThan(rightFrequency);
+    });
+
+    it("keeps the map, wave peak and native slider pointed the same direction", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterFind();
+      stubDiagramRect();
+      const surface = mapSurface();
+      const control = document.querySelector<HTMLInputElement>('[data-testid="frequency-control"]');
+      const peak = document.querySelector('[data-testid="travelling-wave-peak"]');
+
+      // The first gesture unlocks gap mode on pointerup (Section 4), so the
+      // second probe needs a fresh page --- otherwise it would land as a gap
+      // drag instead of a second explore gesture.
+      surface.dispatchEvent(mapPointerEvent("pointerdown", 200));
+      surface.dispatchEvent(mapPointerEvent("pointerup", 200));
+      const leftSliderValue = control!.valueAsNumber;
+      const leftPeakX = horizontalPosition(peak!);
+
+      loadPage();
+      vi.resetModules();
+      await import("../main");
+      enterFind();
+      stubDiagramRect();
+      const surfaceAgain = mapSurface();
+      const controlAgain = document.querySelector<HTMLInputElement>('[data-testid="frequency-control"]');
+      const peakAgain = document.querySelector('[data-testid="travelling-wave-peak"]');
+
+      surfaceAgain.dispatchEvent(mapPointerEvent("pointerdown", 600));
+      surfaceAgain.dispatchEvent(mapPointerEvent("pointerup", 600));
+      const rightSliderValue = controlAgain!.valueAsNumber;
+      const rightPeakX = horizontalPosition(peakAgain!);
+
+      // Higher frequency (left side) means a smaller peak x (closer to base)
+      // but a larger native-slider value (cochlea.ts's own 0..1 mapping runs
+      // low-to-high frequency, independently of the map's left-right flip).
+      expect(leftPeakX).toBeLessThan(rightPeakX);
+      expect(leftSliderValue).toBeGreaterThan(rightSliderValue);
+    });
+
+    it("clamps pointer positions beyond the map bounds to the allowed frequency range", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterFind();
+      stubDiagramRect();
+      const surface = mapSurface();
+
+      surface.dispatchEvent(mapPointerEvent("pointerdown", -1000));
+      surface.dispatchEvent(mapPointerEvent("pointerup", -1000));
+      expect(currentFrequencyHz()).toBe(MAX_FREQUENCY_HZ);
+
+      // The gesture above already unlocked gap mode, so clamping at the other
+      // extreme needs a fresh find-mode page rather than a second drag on the
+      // same surface (which would now be a gap drag, not an explore gesture).
+      loadPage();
+      vi.resetModules();
+      await import("../main");
+      enterFind();
+      stubDiagramRect();
+      const surfaceAgain = mapSurface();
+
+      surfaceAgain.dispatchEvent(mapPointerEvent("pointerdown", 10000));
+      surfaceAgain.dispatchEvent(mapPointerEvent("pointerup", 10000));
+      expect(currentFrequencyHz()).toBe(MIN_FREQUENCY_HZ);
+    });
+
+    it("locks a gesture as explore-frequency for its whole duration, unlocking gap only on pointerup", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterFind();
+      stubDiagramRect();
+      const surface = mapSurface();
+
+      const gapControl = document.querySelector<HTMLElement>('[data-testid="gap-control"]');
+      surface.dispatchEvent(mapPointerEvent("pointerdown", 200));
+      surface.dispatchEvent(mapPointerEvent("pointermove", 600));
+      expect(gapControl!.hidden).toBe(true);
+
+      surface.dispatchEvent(mapPointerEvent("pointerup", 600));
+      expect(gapControl!.hidden).toBe(false);
+    });
+
+    it("never lets a single explore gesture also create a gap", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterFind();
+      stubDiagramRect();
+      const surface = mapSurface();
+
+      surface.dispatchEvent(mapPointerEvent("pointerdown", 200));
+      surface.dispatchEvent(mapPointerEvent("pointermove", 600));
+      surface.dispatchEvent(mapPointerEvent("pointerup", 600));
+
+      expect(gapSelectionWidth()).toBe(0);
+      const demoControl = document.querySelector<HTMLElement>('[data-testid="demo-control"]');
+      expect(demoControl!.hidden).toBe(true);
+    });
+
+    it("never starts audio from map exploration", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterFind();
+      stubDiagramRect();
+      const surface = mapSurface();
+
+      surface.dispatchEvent(mapPointerEvent("pointerdown", 200));
+      surface.dispatchEvent(mapPointerEvent("pointermove", 600));
+      surface.dispatchEvent(mapPointerEvent("pointerup", 600));
+
+      expect(isToneActive()).toBe(false);
+    });
+
+    it("pointercancel during exploration does not falsely complete Stage 1", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterFind();
+      stubDiagramRect();
+      const surface = mapSurface();
+
+      const gapControl = document.querySelector<HTMLElement>('[data-testid="gap-control"]');
+      surface.dispatchEvent(mapPointerEvent("pointerdown", 200));
+      surface.dispatchEvent(mapPointerEvent("pointermove", 600));
+      surface.dispatchEvent(mapPointerEvent("pointercancel", 600));
+
+      expect(gapControl!.hidden).toBe(true);
+    });
+
+    it("Stage 2 map drag creates one continuous valid gap", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterFind();
+      setFrequency(1000);
+      stubDiagramRect();
+      const surface = mapSurface();
+
+      surface.dispatchEvent(mapPointerEvent("pointerdown", 300));
+      surface.dispatchEvent(mapPointerEvent("pointermove", 500));
+      surface.dispatchEvent(mapPointerEvent("pointerup", 500));
+
+      expect(gapSelectionWidth()).toBeGreaterThan(0);
+      const readout = document.querySelector('[data-testid="gap-readout"]');
+      expect(readout?.textContent).not.toMatch(/no gap/i);
+    });
+
+    it("normalises reverse-direction gap dragging to the same interval", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterFind();
+      setFrequency(1000);
+      stubDiagramRect();
+      const forwardSurface = mapSurface();
+      forwardSurface.dispatchEvent(mapPointerEvent("pointerdown", 300));
+      forwardSurface.dispatchEvent(mapPointerEvent("pointermove", 500));
+      forwardSurface.dispatchEvent(mapPointerEvent("pointerup", 500));
+      const forwardWidth = gapSelectionWidth();
+
+      loadPage();
+      vi.resetModules();
+      await import("../main");
+      enterFind();
+      setFrequency(1000);
+      stubDiagramRect();
+      const reverseSurface = mapSurface();
+      reverseSurface.dispatchEvent(mapPointerEvent("pointerdown", 500));
+      reverseSurface.dispatchEvent(mapPointerEvent("pointermove", 300));
+      reverseSurface.dispatchEvent(mapPointerEvent("pointerup", 300));
+      const reverseWidth = gapSelectionWidth();
+
+      expect(reverseWidth).toBeCloseTo(forwardWidth, 5);
+    });
+
+    it("a gap-selection drag does not change the current frequency", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterFind();
+      setFrequency(1000);
+      stubDiagramRect();
+      const before = currentFrequencyHz();
+      const surface = mapSurface();
+
+      surface.dispatchEvent(mapPointerEvent("pointerdown", 300));
+      surface.dispatchEvent(mapPointerEvent("pointermove", 500));
+      surface.dispatchEvent(mapPointerEvent("pointerup", 500));
+
+      expect(currentFrequencyHz()).toBe(before);
+    });
+
+    it("unlocks Stage 3 only once pointerup commits a valid gap", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterFind();
+      setFrequency(1000);
+      stubDiagramRect();
+      const surface = mapSurface();
+      const demoControl = document.querySelector<HTMLElement>('[data-testid="demo-control"]');
+
+      surface.dispatchEvent(mapPointerEvent("pointerdown", 300));
+      surface.dispatchEvent(mapPointerEvent("pointermove", 500));
+      expect(demoControl!.hidden).toBe(true);
+
+      surface.dispatchEvent(mapPointerEvent("pointerup", 500));
+      expect(demoControl!.hidden).toBe(false);
+    });
+
+    it("a cancelled gap gesture does not unlock Stage 3", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterFind();
+      setFrequency(1000);
+      stubDiagramRect();
+      const surface = mapSurface();
+      const demoControl = document.querySelector<HTMLElement>('[data-testid="demo-control"]');
+
+      surface.dispatchEvent(mapPointerEvent("pointerdown", 300));
+      surface.dispatchEvent(mapPointerEvent("pointermove", 500));
+      surface.dispatchEvent(mapPointerEvent("pointercancel", 500));
+
+      expect(demoControl!.hidden).toBe(true);
+      expect(gapSelectionWidth()).toBe(0);
+    });
+
+    it("compare-mode dragging changes neither the frequency nor the committed gap", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterFind();
+      setFrequency(1000);
+      setGapFrequencies(2000, 4000);
+      stubDiagramRect();
+
+      const frequencyBefore = currentFrequencyHz();
+      const widthBefore = gapSelectionWidth();
+      const surface = mapSurface();
+
+      surface.dispatchEvent(mapPointerEvent("pointerdown", 300));
+      surface.dispatchEvent(mapPointerEvent("pointermove", 500));
+      surface.dispatchEvent(mapPointerEvent("pointerup", 500));
+
+      expect(currentFrequencyHz()).toBe(frequencyBefore);
+      expect(gapSelectionWidth()).toBeCloseTo(widthBefore, 5);
+    });
+
+    it("Edit gap returns to gap mode and preserves the existing boundaries", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterFind();
+      setFrequency(1000);
+      setGapFrequencies(2000, 4000);
+
+      const widthBefore = gapSelectionWidth();
+      const readoutBefore = document.querySelector('[data-testid="gap-readout"]')?.textContent;
+
+      const editButton = document.querySelector<HTMLButtonElement>('[data-testid="edit-gap"]');
+      expect(editButton, 'expected a [data-testid="edit-gap"] element').not.toBeNull();
+      editButton!.click();
+
+      expect(mapMode()).toBe("select-gap");
+      const gapControl = document.querySelector<HTMLElement>('[data-testid="gap-control"]');
+      const demoControl = document.querySelector<HTMLElement>('[data-testid="demo-control"]');
+      expect(gapControl!.hidden).toBe(false);
+      expect(demoControl!.hidden).toBe(true);
+      expect(gapSelectionWidth()).toBeCloseTo(widthBefore, 5);
+      expect(document.querySelector('[data-testid="gap-readout"]')?.textContent).toBe(readoutBefore);
+    });
+
+    it("only Clear gap deletes the interval --- Edit gap alone never does", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterFind();
+      setFrequency(1000);
+      setGapFrequencies(2000, 4000);
+
+      const editButton = document.querySelector<HTMLButtonElement>('[data-testid="edit-gap"]');
+      editButton!.click();
+      expect(gapSelectionWidth()).toBeGreaterThan(0);
+
+      const clearButton = document.querySelector<HTMLButtonElement>('[data-testid="clear-gap"]');
+      clearButton!.click();
+
+      expect(gapSelectionWidth()).toBe(0);
+      expect(mapMode()).toBe("select-gap");
+      const demoControl = document.querySelector<HTMLElement>('[data-testid="demo-control"]');
+      expect(demoControl!.hidden).toBe(true);
+    });
+
+    it("Clear gap from compare re-locks Stage 3 and preserves the current frequency", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterFind();
+      setFrequency(1000);
+      setGapFrequencies(2000, 4000);
+      const frequencyBefore = currentFrequencyHz();
+
+      const clearButton = document.querySelector<HTMLButtonElement>('[data-testid="clear-gap"]');
+      clearButton!.click();
+
+      expect(mapMode()).toBe("select-gap");
+      const demoControl = document.querySelector<HTMLElement>('[data-testid="demo-control"]');
+      expect(demoControl!.hidden).toBe(true);
+      expect(currentFrequencyHz()).toBe(frequencyBefore);
+    });
+
+    it("keeps the native frequency slider keyboard-accessible regardless of the current map mode", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterFind();
+      setFrequency(1000);
+      setGapFrequencies(2000, 4000);
+      expect(mapMode()).toBe("display-only");
+
+      setFrequency(4000);
+      expect(currentFrequencyHz()).toBe(4000);
+    });
+  });
+
+  describe("Step 6C: connecting the current frequency to familiar-sound context", () => {
+    function contextSoundText(): string {
+      return document.querySelector('[data-testid="frequency-context-sound"]')?.textContent?.trim() ?? "";
+    }
+
+    function contextPositionText(): string {
+      return document.querySelector('[data-testid="frequency-context-position"]')?.textContent?.trim() ?? "";
+    }
+
+    // The slider's own value is the one source both the map and the native
+    // control funnel through (main.ts's single render() choke point), so
+    // reading it back this way gives the exact frequency render() used ---
+    // unlike parsing the rounded frequency-readout text, it can't drift across
+    // a context band boundary.
+    function currentFrequencyExact(): number {
+      const control = document.querySelector<HTMLInputElement>('[data-testid="frequency-control"]');
+      return sliderPositionToFrequency(control!.valueAsNumber);
+    }
+
+    it("shows a non-empty familiar-sound context and cochlear-position readout once in find", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterFind();
+
+      expect(contextSoundText().length).toBeGreaterThan(0);
+      expect(contextPositionText()).toMatch(/^Strongest response: \d+% from the base$/);
+    });
+
+    it("matches frequencyContext() and frequencyToPercentFromBase() after a native-slider change", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterFind();
+      setFrequency(2713);
+
+      const exact = currentFrequencyExact();
+      expect(contextSoundText()).toBe(frequencyContext(exact));
+      expect(contextPositionText()).toBe(`Strongest response: ${frequencyToPercentFromBase(exact)}% from the base`);
+    });
+
+    it("matches frequencyContext() and frequencyToPercentFromBase() after a map click", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterFind();
+      stubDiagramRect();
+      const surface = mapSurface();
+
+      surface.dispatchEvent(mapPointerEvent("pointerdown", 200));
+      surface.dispatchEvent(mapPointerEvent("pointerup", 200));
+
+      const exact = currentFrequencyExact();
+      expect(contextSoundText()).toBe(frequencyContext(exact));
+      expect(contextPositionText()).toBe(`Strongest response: ${frequencyToPercentFromBase(exact)}% from the base`);
+    });
+
+    it("keeps the visible context live mid-drag, before pointerup", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterFind();
+      stubDiagramRect();
+      const surface = mapSurface();
+
+      surface.dispatchEvent(mapPointerEvent("pointerdown", 200));
+      const midDragSound = contextSoundText();
+      surface.dispatchEvent(mapPointerEvent("pointermove", 600));
+      const afterMoveSound = contextSoundText();
+
+      expect(afterMoveSound).toBe(frequencyContext(currentFrequencyExact()));
+      expect(afterMoveSound).not.toBe(midDragSound);
+      surface.dispatchEvent(mapPointerEvent("pointerup", 600));
+    });
+
+    it("produces the same context for the same frequency whether it arrives via the map or the slider", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterFind();
+      stubDiagramRect();
+      const surface = mapSurface();
+      surface.dispatchEvent(mapPointerEvent("pointerdown", 200));
+      surface.dispatchEvent(mapPointerEvent("pointerup", 200));
+      const viaMapFrequency = currentFrequencyExact();
+      const viaMapSound = contextSoundText();
+      const viaMapPosition = contextPositionText();
+
+      loadPage();
+      vi.resetModules();
+      await import("../main");
+      enterFind();
+      setFrequency(viaMapFrequency);
+
+      expect(contextSoundText()).toBe(viaMapSound);
+      expect(contextPositionText()).toBe(viaMapPosition);
+    });
+
+    it("updates the native slider's aria-valuetext with frequency, context and position together", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterFind();
+      setFrequency(2713);
+
+      const exact = currentFrequencyExact();
+      const control = document.querySelector<HTMLInputElement>('[data-testid="frequency-control"]');
+      const expectedValueText =
+        `${Math.round(exact)} hertz. ${frequencyContext(exact)}. ` +
+        `Strongest response ${frequencyToPercentFromBase(exact)} percent from the base.`;
+
+      expect(control!.getAttribute("aria-valuetext")).toBe(expectedValueText);
+    });
+
+    it("shows a smaller position percentage for a higher frequency, matching the map's own left-right ordering", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterFind();
+      setFrequency(8000);
+      const highPercent = Number(contextPositionText().match(/\d+/)?.[0]);
+
+      setFrequency(250);
+      const lowPercent = Number(contextPositionText().match(/\d+/)?.[0]);
+
+      expect(highPercent).toBeLessThan(lowPercent);
+    });
+
+    it("does not turn the context block into a live region that would announce every drag update", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterFind();
+
+      const contextBlock = document.querySelector('[data-testid="frequency-context"]');
+      expect(contextBlock, 'expected a [data-testid="frequency-context"] element').not.toBeNull();
+      expect(contextBlock!.getAttribute("aria-live")).not.toBe("assertive");
+    });
+
+    it("does not start audio merely from a context update via the native slider", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterFind();
+
+      setFrequency(1000);
+
+      expect(isToneActive()).toBe(false);
+    });
+
+    it("does not unlock Stage 3 merely by rendering an updated context", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterFind();
+      const demoControl = document.querySelector<HTMLElement>('[data-testid="demo-control"]');
+
+      setFrequency(1000);
+
+      expect(demoControl!.hidden).toBe(true);
+    });
+
+    it("does not change a committed gap's boundaries when the frequency and its context change afterwards", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterFind();
+      setFrequency(1000);
+      setGapFrequencies(2000, 4000);
+      const widthBefore = gapSelectionWidth();
+
+      setFrequency(4000);
+
+      expect(gapSelectionWidth()).toBeCloseTo(widthBefore, 5);
     });
   });
 

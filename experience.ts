@@ -14,7 +14,9 @@ export type ExperienceEvent =
   | "skip-to-map"
   | "unfold-cochlea"
   | "explore-frequency"
-  | "create-gap";
+  | "create-gap"
+  | "edit-gap"
+  | "clear-gap";
 
 export function nextExperienceState(
   current: ExperienceState,
@@ -32,5 +34,10 @@ export function nextExperienceState(
   // states is a no-op here.
   if (current === "find" && event === "explore-frequency") return "gap";
   if (current === "gap" && event === "create-gap") return "compare";
+  // Edit gap and Clear gap are explicit, user-triggered regressions from
+  // compare back to gap --- a deliberate exception to "never regresses",
+  // which only ever meant re-triggering the same forward event is a no-op.
+  if (current === "compare" && event === "edit-gap") return "gap";
+  if (current === "compare" && event === "clear-gap") return "gap";
   return current;
 }
