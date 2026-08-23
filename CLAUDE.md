@@ -198,6 +198,45 @@ file upload; no artificial-implant processing; no quiz, navigation system or
 second page; no second graph or independent coordinate system; no
 third-party audio, fonts or runtime libraries.
 
+### Visual acceptance
+
+Green `pnpm check` is necessary, not sufficient — a visual stage also needs
+rendered-page inspection, at desktop and 375px, before it's committed:
+
+- No starter navigation, placeholder copy, or other starter visual residue
+  may remain.
+- The unfolded cochlear map is the dominant visual object on the page.
+- A line plus an isolated marker is not an adequate travelling wave; the
+  peak must sit visibly on a schematic wave envelope, not float alone.
+- Any opening anatomical context is only a transition into that same
+  cochlear map — never a second diagram or a second coordinate system.
+- The outer ear gives sound somewhere to enter; it never appears to perform
+  the frequency-to-place mapping. It's the cochlea, not the pinna, that gets
+  shown uncoiled.
+- `prefers-reduced-motion` visitors get the final unfolded state immediately
+  and understandably, with no decorative motion required to reach it.
+
+Clarified for the opening anatomical view specifically:
+
+- Exactly one project-owned raster illustration (`assets/ear-cutaway.png`) is
+  permitted, and only for this opening anatomical view — a deliberate,
+  narrow exception to "code-native only" after repeated manual inspection
+  showed hand-authored Bézier ear anatomy read as misleading rather than
+  recognisable. No other bitmap, traced, embedded, or downloaded artwork is
+  permitted anywhere else on the page.
+- Everything the visitor interacts with or reads values from — the unfolded
+  map, wave envelope, travelling-wave peak, outer-hair-cell clusters, and any
+  future selection/attenuation UI — stays code-native SVG so its state and
+  geometry remain inspectable and testable. The raster illustration is
+  decorative context only; it never carries state and is fully removed (not
+  merely covered) once the map unfolds.
+- The outer-hair-cell layer needs recognisable cell bodies and stereocilia,
+  never bars or tick marks.
+- Visual realism must not introduce any anatomical or diagnostic claim this
+  page doesn't already make elsewhere.
+- This stays a tonotopy explainer, not a complete anatomy lesson — added
+  detail must still serve the single explanatory claim.
+
 ### Process discipline
 
 - Don't invent `PROCESS.md` or reflections entries before events actually

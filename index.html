@@ -3,21 +3,157 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>COMP4020 prototype</title>
+    <title>Hearing Is a Map, Not a Volume Knob</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <header>
-      <nav aria-label="Primary">
-        <a href="./">Home</a>
-      </nav>
-    </header>
+    <nav aria-label="Primary">
+      <a class="skip-link" href="#frequency-control">Skip to frequency control</a>
+    </nav>
     <main>
-      <h1>COMP4020 prototype</h1>
-      <p data-testid="intro">
-        Replace this with your prototype. This week's brief is on the course website;
-        <code>spec/README.md</code> explains how the checks in this repo relate to it.
+      <h1>Hearing Is a Map, Not a Volume Knob</h1>
+      <p class="intro">
+        Your cochlea turns frequency into place. Sensorineural damage can leave gaps in that map.
       </p>
+
+      <section class="explorer-panel">
+      <figure class="diagram-figure">
+        <div class="diagram-stage" data-testid="diagram-stage">
+        <svg
+          class="diagram"
+          data-testid="cochlear-diagram"
+          viewBox="0 0 800 300"
+          role="img"
+          aria-labelledby="cochlear-map-title cochlear-map-desc"
+        >
+          <title id="cochlear-map-title">Unfolded cochlear frequency map</title>
+          <desc id="cochlear-map-desc">
+            Schematic diagram, not to scale. Shown uncoiled as a map, high frequencies sit near the
+            base on the left and low frequencies near the apex on the right. The bright peak marks
+            the travelling-wave crest for the selected frequency.
+          </desc>
+
+          <g class="grid-lines" aria-hidden="true">
+            <line x1="60" y1="70" x2="740" y2="70" />
+            <line x1="60" y1="230" x2="740" y2="230" />
+          </g>
+
+          <text class="diagram-annotation" x="736" y="18" text-anchor="end">
+            Greenwood human cochlear frequency&#8211;place function
+          </text>
+
+          <g class="cochlear-map-group">
+            <path class="cochlear-membrane" d="
+              M60,128 C260,116 520,110 740,138
+              L740,162 C520,190 260,184 60,172 Z
+            " />
+
+            <g class="reference-marks">
+              <g class="reference-mark" data-ref-hz="8000">
+                <line class="reference-tick" x1="0" y1="116" x2="0" y2="128" />
+                <text class="reference-label" x="0" y="110">8 kHz</text>
+              </g>
+              <g class="reference-mark" data-ref-hz="4000">
+                <line class="reference-tick" x1="0" y1="116" x2="0" y2="128" />
+                <text class="reference-label" x="0" y="110">4 kHz</text>
+              </g>
+              <g class="reference-mark" data-ref-hz="1000">
+                <line class="reference-tick" x1="0" y1="116" x2="0" y2="128" />
+                <text class="reference-label" x="0" y="110">1 kHz</text>
+              </g>
+              <g class="reference-mark" data-ref-hz="250">
+                <line class="reference-tick" x1="0" y1="116" x2="0" y2="128" />
+                <text class="reference-label" x="0" y="110">250 Hz</text>
+              </g>
+            </g>
+
+            <path class="wave-envelope" d="" />
+
+            <circle
+              data-testid="travelling-wave-peak"
+              class="wave-peak"
+              cx="400"
+              cy="104"
+              r="8"
+            />
+
+            <g data-testid="peak-callout" class="peak-callout">
+              <line class="peak-callout-leader" x1="400" y1="86" x2="400" y2="99" />
+              <text class="peak-callout-label" x="400" y="74" text-anchor="middle">
+                Peak response
+              </text>
+            </g>
+
+            <line class="end-marker end-marker-accent" x1="60" y1="128" x2="60" y2="172" />
+            <line class="end-marker" x1="740" y1="138" x2="740" y2="162" />
+
+            <g data-testid="outer-hair-cells" class="hair-cell-row" aria-hidden="true"></g>
+            <text class="hair-cell-label" x="60" y="234">Outer hair cells</text>
+            <text class="hair-cell-label map-label-sub" x="60" y="248">
+              Amplify and sharpen the response
+            </text>
+
+            <text class="map-label map-label-accent" x="60" y="266">Base</text>
+            <text class="map-label map-label-sub" x="60" y="282">High frequency</text>
+            <text class="map-label" x="740" y="266" text-anchor="end">Apex</text>
+            <text class="map-label map-label-sub" x="740" y="282" text-anchor="end">
+              Low frequency
+            </text>
+          </g>
+        </svg>
+
+        <div class="ear-hero" data-testid="ear-hero">
+          <img
+            class="ear-hero-image"
+            src="./assets/ear-cutaway.png"
+            alt="Cutaway anatomical illustration of the outer, middle and inner ear, showing the pinna, ear canal, eardrum, ossicles and coiled cochlea."
+          />
+          <svg class="ear-hero-callouts" viewBox="0 0 800 300" aria-hidden="true">
+            <ellipse class="cochlea-focus-ring" cx="526" cy="147" rx="26" ry="26" />
+            <g class="hero-callout" data-callout="sound-enters">
+              <path class="hero-callout-leader" d="M40,58 L165,128" />
+              <text class="hero-callout-label" x="20" y="46">Sound enters</text>
+            </g>
+            <g class="hero-callout" data-callout="cochlea">
+              <path class="hero-callout-leader" d="M526,58 L526,118" />
+              <text class="hero-callout-label" x="526" y="46" text-anchor="middle">Cochlea</text>
+            </g>
+          </svg>
+        </div>
+        </div>
+        <figcaption class="diagram-note" data-testid="diagram-instruction">
+          Drag the frequency to unfold the cochlea
+        </figcaption>
+        <p class="wave-explainer">
+          This frequency produces its strongest response here, at the highlighted outer-hair-cell
+          region beneath the travelling-wave peak.
+        </p>
+      </figure>
+
+      <div class="frequency-control">
+        <label for="frequency-control">Frequency</label>
+        <input
+          type="range"
+          id="frequency-control"
+          data-testid="frequency-control"
+          min="0"
+          max="1"
+          step="0.001"
+          value="0.5"
+        />
+        <output for="frequency-control" data-testid="frequency-readout" aria-live="polite"
+          >1,000 Hz</output
+        >
+      </div>
+
+      <div class="sound-control">
+        <p class="sound-control-safety">
+          Start at a comfortable volume. Never turn the volume up just to hear a high-frequency
+          tone.
+        </p>
+        <button type="button" data-testid="tone-toggle" aria-pressed="false">Play tone</button>
+      </div>
+      </section>
     </main>
     <script type="module" src="./main.ts"></script>
   </body>
