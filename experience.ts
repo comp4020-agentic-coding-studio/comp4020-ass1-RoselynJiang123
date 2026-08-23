@@ -9,7 +9,12 @@
 
 export type ExperienceState = "orientation" | "cochlea-focus" | "find" | "gap" | "compare";
 
-export type ExperienceEvent = "explore-cochlea" | "skip-to-map" | "unfold-cochlea";
+export type ExperienceEvent =
+  | "explore-cochlea"
+  | "skip-to-map"
+  | "unfold-cochlea"
+  | "explore-frequency"
+  | "create-gap";
 
 export function nextExperienceState(
   current: ExperienceState,
@@ -20,5 +25,12 @@ export function nextExperienceState(
     if (event === "skip-to-map") return "find";
   }
   if (current === "cochlea-focus" && event === "unfold-cochlea") return "find";
+  // Progressive disclosure (CLAUDE.md: "Guide visitors through Stages 1-3").
+  // Both steps are one-way: a genuine Stage 1 interaction unlocks Stage 2,
+  // and a genuine valid gap unlocks Stage 3. Neither ever regresses the
+  // state, so re-exploring frequency or re-editing an existing gap in later
+  // states is a no-op here.
+  if (current === "find" && event === "explore-frequency") return "gap";
+  if (current === "gap" && event === "create-gap") return "compare";
   return current;
 }

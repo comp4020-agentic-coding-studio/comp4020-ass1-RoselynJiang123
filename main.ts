@@ -14,7 +14,7 @@
 
 import { MAX_FREQUENCY_HZ, MIN_FREQUENCY_HZ, frequencyToDisplayPosition, sliderPositionToFrequency } from "./cochlea";
 import { isToneActive, setGapFilters, startTone, stopTone, updateToneFrequency } from "./audio";
-import { type ExperienceState, nextExperienceState } from "./experience";
+import { type ExperienceEvent, type ExperienceState, nextExperienceState } from "./experience";
 import {
   type GapSelection,
   clampDisplayPosition,
@@ -311,11 +311,20 @@ function updateSpectrumBarEnergies(bars: SpectrumBar[], analyser: AnalyserNode):
   });
 }
 
+// Public surface `init()` uses to advance and read the guided state without
+// reaching into initExperience()'s own closure --- Stage 1-3's progressive
+// disclosure (CLAUDE.md: "Guide visitors through Stages 1-3") is driven by
+// genuine control interactions that live in `init()`, not here.
+interface ExperienceController {
+  advance(event: ExperienceEvent): ExperienceState;
+  getState(): ExperienceState;
+}
+
 // Guided orientation wiring (CLAUDE.md: "Guided orientation"). The state
 // itself lives in `state` below and is the only thing nextExperienceState
 // ever reads/advances --- initialization, resize, animation completion and
-// audio events must never call it, only these three explicit activations.
-function initExperience(): void {
+// audio events must never call it, only explicit user activations.
+function initExperience(): ExperienceController | null {
   const root = document.querySelector<HTMLElement>("main");
   const orientationPanel = document.querySelector<HTMLElement>('[data-testid="orientation-panel"]');
   const cochleaFocusPanel = document.querySelector<HTMLElement>('[data-testid="cochlea-focus-panel"]');
@@ -323,8 +332,11 @@ function initExperience(): void {
   const exploreButton = document.querySelector<HTMLButtonElement>('[data-testid="explore-cochlea"]');
   const skipButton = document.querySelector<HTMLButtonElement>('[data-testid="skip-to-map"]');
   const unfoldButton = document.querySelector<HTMLButtonElement>('[data-testid="unfold-cochlea"]');
+  const stageProgressItems = Array.from(
+    explorerPanel?.querySelectorAll<HTMLLIElement>('[data-testid="stage-progress-item"]') ?? [],
+  );
 
-  if (!root || !orientationPanel || !cochleaFocusPanel || !explorerPanel) return;
+  if (!root || !orientationPanel || !cochleaFocusPanel || !explorerPanel) return null;
 
   const experienceStage = document.querySelector<HTMLElement>(".experience-stage");
 
@@ -337,11 +349,38 @@ function initExperience(): void {
 
   let state: ExperienceState = "orientation";
 
+  // The three Stage 1-3 steps, in the order the progress indicator lists
+  // them --- used only to compare "how far along" the current state is, not
+  // to drive nextExperienceState itself.
+  const STAGE_ORDER: ExperienceState[] = ["find", "gap", "compare"];
+
+  function updateStageProgress(): void {
+    const currentIndex = STAGE_ORDER.indexOf(state);
+    for (const item of stageProgressItems) {
+      const step = item.dataset.step as ExperienceState | undefined;
+      const stepIndex = step ? STAGE_ORDER.indexOf(step) : -1;
+      if (stepIndex === -1 || currentIndex === -1) continue;
+
+      if (step === state) {
+        item.setAttribute("aria-current", "step");
+      } else {
+        item.removeAttribute("aria-current");
+      }
+
+      if (currentIndex > stepIndex) {
+        item.setAttribute("data-complete", "true");
+      } else {
+        item.removeAttribute("data-complete");
+      }
+    }
+  }
+
   function applyState(): void {
     root!.setAttribute("data-experience-state", state);
     orientationPanel!.hidden = state !== "orientation";
     cochleaFocusPanel!.hidden = state !== "cochlea-focus";
     explorerPanel!.hidden = state === "orientation" || state === "cochlea-focus";
+    updateStageProgress();
   }
 
   // These are native <button> elements, so the browser already turns Enter
@@ -446,10 +485,21 @@ function initExperience(): void {
   });
 
   applyState();
+
+  return {
+    advance(event) {
+      state = nextExperienceState(state, event);
+      applyState();
+      return state;
+    },
+    getState() {
+      return state;
+    },
+  };
 }
 
 function init(): void {
-  initExperience();
+  const experience = initExperience();
 
   const control = document.querySelector<HTMLInputElement>('[data-testid="frequency-control"]');
   const readout = document.querySelector<HTMLOutputElement>('[data-testid="frequency-readout"]');
@@ -459,6 +509,8 @@ function init(): void {
   const instruction = document.querySelector<HTMLElement>('[data-testid="diagram-instruction"]');
   const toneToggle = document.querySelector<HTMLButtonElement>('[data-testid="tone-toggle"]');
   const peakCallout = document.querySelector<SVGGElement>('[data-testid="peak-callout"]');
+  const gapControlPanel = document.querySelector<HTMLElement>('[data-testid="gap-control"]');
+  const demoControlPanel = document.querySelector<HTMLElement>('[data-testid="demo-control"]');
   const gapSurface = document.querySelector<SVGRectElement>('[data-testid="gap-selection-surface"]');
   const gapSelectionRect = document.querySelector<SVGRectElement>('[data-testid="gap-selection"]');
   const gapReadout = document.querySelector<HTMLOutputElement>('[data-testid="gap-readout"]');
@@ -470,6 +522,23 @@ function init(): void {
   const demoPhaseStatus = document.querySelector<HTMLOutputElement>('[data-testid="demo-phase-status"]');
   const demoRouteStatus = document.querySelector<HTMLOutputElement>('[data-testid="demo-route-status"]');
   const demoErrorEl = document.querySelector<HTMLElement>('[data-testid="demo-error"]');
+
+  // Stage 2 and Stage 3's progressive disclosure (CLAUDE.md: "Guide visitors
+  // through Stages 1-3"): each panel's `hidden` attribute follows the guided
+  // experience state, not just CSS, so an unlocked-later panel is genuinely
+  // unreachable by keyboard or screen reader until its stage is reached.
+  function updateStageVisibility(): void {
+    const currentState = experience?.getState() ?? "find";
+    if (gapControlPanel) gapControlPanel.hidden = currentState !== "gap" && currentState !== "compare";
+    if (demoControlPanel) demoControlPanel.hidden = currentState !== "compare";
+  }
+
+  function advanceExperience(event: ExperienceEvent): void {
+    experience?.advance(event);
+    updateStageVisibility();
+  }
+
+  updateStageVisibility();
 
   if (!control || !readout || !diagram || !peak || !envelope) return;
 
@@ -532,6 +601,11 @@ function init(): void {
   controlEl.addEventListener("input", () => {
     revealUnfoldedMap();
     render();
+    // A real "input" event only fires from genuine pointer/keyboard use, not
+    // from a programmatic .value assignment --- so this is already the
+    // narrowest signal of "the visitor actually explored a frequency"
+    // Stage 2's unlock needs.
+    advanceExperience("explore-frequency");
   });
 
   toneToggle?.addEventListener("click", () => {
@@ -597,6 +671,11 @@ function init(): void {
         gapReadoutEl.textContent = formatGapReadout(gap);
         setGapFilters(gapToFilterStages(gap));
         setDemoGapFilters(gapToFilterStages(gap));
+        // createGapSelection/createGapSelectionFromFrequencies always return
+        // an ordered, minimum-width, in-range selection, so "a gap was
+        // committed here" already is "a valid gap" --- Stage 3's unlock
+        // needs no separate validity check.
+        advanceExperience("create-gap");
       } else {
         gapReadoutEl.textContent = "No gap selected";
         setGapFilters(null);

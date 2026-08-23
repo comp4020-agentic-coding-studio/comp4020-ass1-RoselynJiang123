@@ -81,6 +81,20 @@
       </section>
 
       <section class="explorer-panel" data-testid="explorer-panel" hidden>
+      <ol class="stage-progress" data-testid="stage-progress" aria-label="Guided steps">
+        <li class="stage-progress-item" data-testid="stage-progress-item" data-step="find">
+          <span class="stage-progress-marker" aria-hidden="true"></span>
+          <span class="stage-progress-label">Find the sound</span>
+        </li>
+        <li class="stage-progress-item" data-testid="stage-progress-item" data-step="gap">
+          <span class="stage-progress-marker" aria-hidden="true"></span>
+          <span class="stage-progress-label">Make a gap</span>
+        </li>
+        <li class="stage-progress-item" data-testid="stage-progress-item" data-step="compare">
+          <span class="stage-progress-marker" aria-hidden="true"></span>
+          <span class="stage-progress-label">Hear what the gap removes</span>
+        </li>
+      </ol>
       <h2>Find the sound</h2>
       <p class="stage-instruction">Different frequencies peak at different cochlear places.</p>
       <figure class="diagram-figure">
@@ -259,7 +273,7 @@
         <button type="button" data-testid="tone-toggle" aria-pressed="false">Play tone</button>
       </div>
 
-      <div class="gap-control">
+      <div class="gap-control" data-testid="gap-control" hidden>
         <h2>Make a gap</h2>
         <p class="stage-instruction">
           Select one continuous region; this model attenuates that frequency range.
@@ -274,34 +288,37 @@
           >
           <button type="button" data-testid="clear-gap">Clear gap</button>
         </div>
-        <fieldset class="gap-boundaries">
-          <legend>Gap boundaries</legend>
-          <div class="gap-boundary-field">
-            <label for="gap-lower-frequency">Gap lower frequency</label>
-            <input
-              type="number"
-              id="gap-lower-frequency"
-              data-testid="gap-lower-frequency"
-              min="125"
-              max="8000"
-              step="1"
-            />
-          </div>
-          <div class="gap-boundary-field">
-            <label for="gap-upper-frequency">Gap upper frequency</label>
-            <input
-              type="number"
-              id="gap-upper-frequency"
-              data-testid="gap-upper-frequency"
-              min="125"
-              max="8000"
-              step="1"
-            />
-          </div>
-        </fieldset>
+        <details class="gap-exact-entry" data-testid="gap-exact-details">
+          <summary>Enter exact frequencies</summary>
+          <fieldset class="gap-boundaries">
+            <legend>Gap boundaries</legend>
+            <div class="gap-boundary-field">
+              <label for="gap-lower-frequency">Gap lower frequency</label>
+              <input
+                type="number"
+                id="gap-lower-frequency"
+                data-testid="gap-lower-frequency"
+                min="125"
+                max="8000"
+                step="1"
+              />
+            </div>
+            <div class="gap-boundary-field">
+              <label for="gap-upper-frequency">Gap upper frequency</label>
+              <input
+                type="number"
+                id="gap-upper-frequency"
+                data-testid="gap-upper-frequency"
+                min="125"
+                max="8000"
+                step="1"
+              />
+            </div>
+          </fieldset>
+        </details>
       </div>
 
-      <div class="demo-control">
+      <div class="demo-control" data-testid="demo-control" hidden>
         <h2>Hear what the gap removes</h2>
         <p class="stage-instruction">Play the same speech/melody and hold to compare.</p>
         <p class="demo-copy">

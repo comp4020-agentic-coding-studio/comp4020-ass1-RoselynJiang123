@@ -1007,6 +1007,7 @@ describe("Assignment 1: Hearing Is a Map, Not a Volume Knob", () => {
       vi.resetModules();
       await import("../main");
       enterFind();
+      setFrequency(1000);
 
       setGapFrequencies(3000, 5000);
 
@@ -1043,6 +1044,113 @@ describe("Assignment 1: Hearing Is a Map, Not a Volume Knob", () => {
 
       const readout = document.querySelector('[data-testid="gap-readout"]');
       expect(readout?.textContent).toMatch(/no gap/i);
+    });
+  });
+
+  describe("Progressive disclosure of Stages 2 and 3", () => {
+    function stageProgressItem(step: "find" | "gap" | "compare"): HTMLElement {
+      const item = document.querySelector<HTMLElement>(
+        `[data-testid="stage-progress-item"][data-step="${step}"]`,
+      );
+      expect(item, `expected a stage-progress-item for "${step}"`).not.toBeNull();
+      return item!;
+    }
+
+    it("keeps Stage 2 and Stage 3 genuinely hidden until their stage is reached", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterFind();
+
+      const gapControl = document.querySelector<HTMLElement>('[data-testid="gap-control"]');
+      const demoControl = document.querySelector<HTMLElement>('[data-testid="demo-control"]');
+      expect(gapControl, 'expected a [data-testid="gap-control"] element').not.toBeNull();
+      expect(demoControl, 'expected a [data-testid="demo-control"] element').not.toBeNull();
+      expect(gapControl!.hidden).toBe(true);
+      expect(demoControl!.hidden).toBe(true);
+    });
+
+    it("unlocks Stage 2 after one genuine frequency exploration, but keeps Stage 3 locked until a gap exists", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterFind();
+
+      setFrequency(1000);
+
+      const gapControl = document.querySelector<HTMLElement>('[data-testid="gap-control"]');
+      const demoControl = document.querySelector<HTMLElement>('[data-testid="demo-control"]');
+      expect(gapControl!.hidden).toBe(false);
+      expect(demoControl!.hidden).toBe(true);
+    });
+
+    it("unlocks Stage 3 once a valid gap is committed", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterFind();
+      setFrequency(1000);
+
+      setGapFrequencies(2000, 4000);
+
+      const demoControl = document.querySelector<HTMLElement>('[data-testid="demo-control"]');
+      expect(demoControl!.hidden).toBe(false);
+    });
+
+    it("never regresses a later stage back into hiding (e.g. clearing an unlocked gap)", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterFind();
+      setFrequency(1000);
+      setGapFrequencies(2000, 4000);
+
+      const clearButton = document.querySelector<HTMLButtonElement>('[data-testid="clear-gap"]');
+      clearButton!.click();
+
+      const demoControl = document.querySelector<HTMLElement>('[data-testid="demo-control"]');
+      expect(demoControl!.hidden).toBe(false);
+    });
+
+    it("marks the current step with aria-current=\"step\" and completed steps as complete, never colour alone", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterFind();
+
+      expect(stageProgressItem("find").getAttribute("aria-current")).toBe("step");
+      expect(stageProgressItem("find").hasAttribute("data-complete")).toBe(false);
+
+      setFrequency(1000);
+      expect(stageProgressItem("gap").getAttribute("aria-current")).toBe("step");
+      expect(stageProgressItem("find").getAttribute("data-complete")).toBe("true");
+      expect(stageProgressItem("find").getAttribute("aria-current")).toBeNull();
+
+      setGapFrequencies(2000, 4000);
+      expect(stageProgressItem("compare").getAttribute("aria-current")).toBe("step");
+      expect(stageProgressItem("gap").getAttribute("data-complete")).toBe("true");
+
+      // Completion is never colour-only: every completed marker also carries
+      // a checkmark glyph in generated content, driven by the same
+      // data-complete attribute the test above already asserts on.
+      expect(SOURCE_CSS).toMatch(/data-complete="true"[\s\S]*?content:\s*"\\2713"/);
+    });
+
+    it("uses a plain, non-interactive step list rather than navigation or a tablist", () => {
+      const list = document.querySelector('[data-testid="stage-progress"]');
+      expect(list, 'expected a [data-testid="stage-progress"] element').not.toBeNull();
+      expect(list!.tagName.toLowerCase()).toBe("ol");
+      expect(list!.getAttribute("role")).not.toBe("tablist");
+      expect(list!.closest("nav")).toBeNull();
+      expect(list!.querySelectorAll("a, button").length).toBe(0);
+    });
+
+    it("keeps the exact-frequency inputs inside a closed-by-default disclosure", () => {
+      const details = document.querySelector<HTMLDetailsElement>('[data-testid="gap-exact-details"]');
+      expect(details, 'expected a [data-testid="gap-exact-details"] element').not.toBeNull();
+      expect(details!.tagName.toLowerCase()).toBe("details");
+      expect(details!.open).toBe(false);
+
+      const summary = details!.querySelector("summary");
+      expect(summary?.textContent?.trim()).toBe("Enter exact frequencies");
+
+      expect(details!.querySelector('[data-testid="gap-lower-frequency"]')).not.toBeNull();
+      expect(details!.querySelector('[data-testid="gap-upper-frequency"]')).not.toBeNull();
     });
   });
 
@@ -1089,6 +1197,7 @@ describe("Assignment 1: Hearing Is a Map, Not a Volume Knob", () => {
       vi.resetModules();
       await import("../main");
       enterFind();
+      setFrequency(1000);
 
       const compareButton = document.querySelector<HTMLButtonElement>('[data-testid="gap-compare"]');
       expect(compareButton, 'expected a [data-testid="gap-compare"] element').not.toBeNull();
@@ -1105,6 +1214,7 @@ describe("Assignment 1: Hearing Is a Map, Not a Volume Knob", () => {
       vi.resetModules();
       await import("../main");
       enterFind();
+      setFrequency(1000);
 
       setGapFrequencies(2000, 4000);
 
@@ -1144,6 +1254,7 @@ describe("Assignment 1: Hearing Is a Map, Not a Volume Knob", () => {
       vi.resetModules();
       await import("../main");
       enterFind();
+      setFrequency(1000);
 
       setGapFrequencies(2000, 4000);
       const playButton = document.querySelector<HTMLButtonElement>('[data-testid="demo-play"]');
