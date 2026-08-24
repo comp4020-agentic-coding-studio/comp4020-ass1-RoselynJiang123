@@ -28,12 +28,13 @@ import {
   createGapSelection,
   createGapSelectionFromFrequencies,
   displayPositionToFrequency,
+  formatFrequencyRangeHz,
   gapToFilterStages,
   isDisplayPositionInGap,
   isFrequencyInGap,
 } from "./gap";
 import { type SpectrumBand, aggregateBandEnergies, buildSpectrumBands } from "./spectrum";
-import { getDemoAnalyser, setDemoGapFilters, setDemoWet, startDemo, stopDemo } from "./demo";
+import { getDemoAnalyser, getDemoProgress, setDemoGapFilters, setDemoWet, startDemo, stopDemo } from "./demo";
 import coiledMapSvg from "./assets/orientation/coiled-cochlear-frequency-map.svg?raw";
 import ohcCutawaySvg from "./assets/orientation/outer-hair-cell-cutaway.svg?raw";
 
@@ -113,6 +114,19 @@ function formatGapReadout(gap: GapSelection): string {
   const highKHz = (gap.highFrequencyHz / 1000).toFixed(1);
   return `${lowKHz}–${highKHz} kHz attenuated`;
 }
+
+// Step 6D: the two-part playback timeline's state, kept a distinct concept
+// from the guided ExperienceState above --- this only ever describes where
+// the current Stage 3 example has reached, never which stage the visitor is
+// in.
+type PlaybackPart = "ready" | "voice" | "melody" | "complete";
+
+const PLAYBACK_STATUS_TEXT: Record<PlaybackPart, string> = {
+  ready: "Ready · Your recorded voice plays first, followed by a code-synthesised melody.",
+  voice: "Now playing: Your recorded voice · Next: code-synthesised melody.",
+  melody: "Now playing: Code-synthesised melody.",
+  complete: "Playback complete · Ready to play again.",
+};
 
 function buildEnvelopePath(centerX: number): string {
   const commands: string[] = [];
@@ -548,6 +562,8 @@ function init(): void {
   const demoPhaseStatus = document.querySelector<HTMLOutputElement>('[data-testid="demo-phase-status"]');
   const demoRouteStatus = document.querySelector<HTMLOutputElement>('[data-testid="demo-route-status"]');
   const demoErrorEl = document.querySelector<HTMLElement>('[data-testid="demo-error"]');
+  const playbackTimeline = document.querySelector<HTMLElement>('[data-testid="playback-timeline"]');
+  const playbackProgress = document.querySelector<HTMLProgressElement>('[data-testid="playback-progress"]');
 
   // The persistent straight map has exactly three interaction modes, keyed
   // off the same guided experience state Stage 1-3's progressive disclosure
@@ -881,6 +897,7 @@ function init(): void {
   // (CLAUDE.md: "the educational result must hold without sound").
   let demoUiPlaying = false;
   let energyAnimationFrame: number | null = null;
+  let progressAnimationFrame: number | null = null;
 
   function updateGapCompareAvailability(): void {
     if (!gapCompareButton) return;
@@ -888,8 +905,46 @@ function init(): void {
   }
 
   function setDemoRouteStatus(throughGap: boolean): void {
-    if (demoRouteStatus) demoRouteStatus.textContent = throughGap ? "Through the gap" : "Original";
+    if (demoRouteStatus) {
+      demoRouteStatus.textContent =
+        throughGap && gap
+          ? `Gap active · ${formatFrequencyRangeHz(gap.lowFrequencyHz, gap.highFrequencyHz)} attenuated`
+          : "Original spectrum";
+    }
     gapCompareButton?.setAttribute("aria-pressed", throughGap ? "true" : "false");
+  }
+
+  // The visible playback-part timeline/status/progress all read from this one
+  // piece of state, which is only ever advanced by demo.ts's phase/end
+  // callbacks (real or fallback-timed --- see demo.ts's
+  // FALLBACK_VOICE_DURATION_SECONDS) --- never by this function itself
+  // guessing at timing.
+  function setPlaybackPart(part: PlaybackPart): void {
+    if (playbackTimeline) playbackTimeline.dataset.playbackPart = part;
+    if (demoPhaseStatus) demoPhaseStatus.textContent = PLAYBACK_STATUS_TEXT[part];
+  }
+
+  function syncPlaybackProgress(): void {
+    if (!playbackProgress) return;
+    const percent = Math.round(getDemoProgress() * 100);
+    playbackProgress.value = Math.min(100, Math.max(0, percent));
+  }
+
+  function startProgressLoop(): void {
+    function tick(): void {
+      syncPlaybackProgress();
+      progressAnimationFrame = requestAnimationFrame(tick);
+    }
+    if (progressAnimationFrame === null) {
+      progressAnimationFrame = requestAnimationFrame(tick);
+    }
+  }
+
+  function stopProgressLoop(): void {
+    if (progressAnimationFrame !== null) {
+      cancelAnimationFrame(progressAnimationFrame);
+      progressAnimationFrame = null;
+    }
   }
 
   function startEnergyLoop(): void {
@@ -927,35 +982,41 @@ function init(): void {
     demoErrorEl.textContent = "";
   }
 
-  function endDemoPlayback(): void {
+  function endDemoPlayback(part: PlaybackPart): void {
     demoUiPlaying = false;
-    if (demoPlayButton) demoPlayButton.textContent = "Play example";
-    if (demoPhaseStatus) demoPhaseStatus.textContent = "";
+    if (demoPlayButton) demoPlayButton.textContent = "Play speech + melody";
+    setPlaybackPart(part);
+    if (playbackProgress) playbackProgress.value = part === "complete" ? 100 : 0;
     setDemoRouteStatus(false);
     stopEnergyLoop();
+    stopProgressLoop();
     updateGapCompareAvailability();
   }
 
   demoPlayButton?.addEventListener("click", () => {
     if (demoUiPlaying) {
       stopDemo();
-      endDemoPlayback();
+      endDemoPlayback("ready");
       return;
     }
 
     hideDemoError();
     demoUiPlaying = true;
-    demoPlayButton.textContent = "Stop example";
+    demoPlayButton.textContent = "Stop playback";
     setDemoRouteStatus(false);
+    setPlaybackPart("ready");
+    if (playbackProgress) playbackProgress.value = 0;
     updateGapCompareAvailability();
     startEnergyLoop();
+    startProgressLoop();
 
     void startDemo(gap ? gapToFilterStages(gap) : null, {
       onPhaseChange(phase) {
-        if (demoPhaseStatus) demoPhaseStatus.textContent = phase === "speech" ? "Speech" : "Melody";
+        setPlaybackPart(phase === "speech" ? "voice" : "melody");
+        syncPlaybackProgress();
       },
       onEnded() {
-        endDemoPlayback();
+        endDemoPlayback("complete");
       },
       onError(message) {
         // Deliberately doesn't call endDemoPlayback(): a browser/environment
@@ -963,7 +1024,8 @@ function init(): void {
         // still leave the visible demo --- phase status, spectrum bars' gap
         // marking, and the hold-to-compare status text --- usable, per
         // CLAUDE.md's "the educational result must hold without sound". Only
-        // the never-going-to-arrive analyser loop is stood down.
+        // the never-going-to-arrive analyser loop is stood down; the playback
+        // timeline/progress still run from demo.ts's fallback timing.
         showDemoError(message);
         stopEnergyLoop();
       },
@@ -997,11 +1059,16 @@ function init(): void {
     compareButton.addEventListener("pointerup", releaseWet);
     compareButton.addEventListener("pointercancel", releaseWet);
     compareButton.addEventListener("pointerleave", releaseWet);
+    compareButton.addEventListener("lostpointercapture", releaseWet);
     compareButton.addEventListener("blur", releaseWet);
 
+    // event.repeat guards against the browser's own key-repeat re-firing
+    // keydown while Space/Enter stays held --- without it, a long hold would
+    // call engageWet() repeatedly instead of once.
     compareButton.addEventListener("keydown", (event) => {
       if (event.key !== " " && event.key !== "Enter") return;
       event.preventDefault();
+      if (event.repeat) return;
       engageWet();
     });
     compareButton.addEventListener("keyup", (event) => {

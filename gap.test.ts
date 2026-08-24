@@ -11,6 +11,7 @@ import {
   createGapSelection,
   createGapSelectionFromFrequencies,
   displayPositionToFrequency,
+  formatFrequencyRangeHz,
   gapToFilterStages,
   isDisplayPositionInGap,
   isFrequencyInGap,
@@ -189,6 +190,33 @@ describe("membership checks", () => {
     const outsidePosition = frequencyToDisplayPosition(500);
     expect(isDisplayPositionInGap(insidePosition, selection)).toBe(true);
     expect(isDisplayPositionInGap(outsidePosition, selection)).toBe(false);
+  });
+});
+
+describe("formatFrequencyRangeHz", () => {
+  it("renders a sub-1kHz range in plain Hz", () => {
+    expect(formatFrequencyRangeHz(320, 780)).toBe("320–780 Hz");
+  });
+
+  it("renders a range straddling 1kHz in kHz, one decimal place", () => {
+    expect(formatFrequencyRangeHz(1200, 3800)).toBe("1.2–3.8 kHz");
+  });
+
+  it("renders a range entirely above 1kHz in kHz", () => {
+    expect(formatFrequencyRangeHz(3200, 5800)).toBe("3.2–5.8 kHz");
+  });
+
+  it("never mixes units within a single rendered range", () => {
+    const result = formatFrequencyRangeHz(900, 1100);
+    const hasHz = result.endsWith(" Hz");
+    const hasKHz = result.endsWith(" kHz");
+    expect(hasHz || hasKHz).toBe(true);
+    expect(hasHz && hasKHz).toBe(false);
+  });
+
+  it("throws on non-finite input", () => {
+    expect(() => formatFrequencyRangeHz(NaN, 500)).toThrow(RangeError);
+    expect(() => formatFrequencyRangeHz(500, Infinity)).toThrow(RangeError);
   });
 });
 

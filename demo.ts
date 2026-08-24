@@ -13,7 +13,13 @@
 // --- CLAUDE.md's "the educational result must hold without sound".
 
 import { stopTone } from "./audio";
-import { MELODY_ATTACK_SECONDS, MELODY_NOTES, MELODY_RELEASE_SECONDS, partialsForNote } from "./melody";
+import {
+  MELODY_ATTACK_SECONDS,
+  MELODY_NOTES,
+  MELODY_RELEASE_SECONDS,
+  partialsForNote,
+  totalMelodyDurationSeconds,
+} from "./melody";
 import type { PeakingFilterStage } from "./gap";
 
 const VOICE_URL = new URL("./assets/voice.m4a", import.meta.url).href;
@@ -25,6 +31,15 @@ const DRY_WET_RAMP_SECONDS = 0.08;
 const TAIL_SECONDS = 0.2;
 const ANALYSER_FFT_SIZE = 2048;
 
+// Measured duration of assets/voice.m4a (from its MP4 "mvhd" atom). Used only
+// to drive the UI-facing playback timeline/progress when the real decoded
+// buffer isn't available yet --- no Web Audio implementation at all (the test
+// harness), or a load/decode failure. Real playback always schedules from the
+// actual decoded buffer's duration; this constant exists so the visible
+// timeline still progresses meaningfully without it, per CLAUDE.md's "the
+// educational result must hold without sound".
+export const FALLBACK_VOICE_DURATION_SECONDS = 5.2266;
+
 export type DemoPhase = "speech" | "melody";
 
 export interface DemoAudioCallbacks {
@@ -34,10 +49,11 @@ export interface DemoAudioCallbacks {
 }
 
 interface ActiveDemo {
-  analyser: AnalyserNode;
+  analyser: AnalyserNode | null;
   setGapFilters: (stages: readonly PeakingFilterStage[] | null) => void;
   setWet: (wet: boolean) => void;
   stop: () => void;
+  getProgress: () => number;
 }
 
 let activeDemo: ActiveDemo | null = null;
@@ -89,6 +105,62 @@ export function setDemoWet(wet: boolean): void {
   activeDemo?.setWet(wet);
 }
 
+// 0 before/after playback, otherwise how far through the two-part sequence
+// (voice, then melody, plus its short tail) the active timeline has reached
+// --- the same schedule that drives the "speech"/"melody" phase callbacks
+// below, never a second, independently-guessed timing model.
+export function getDemoProgress(): number {
+  return activeDemo?.getProgress() ?? 0;
+}
+
+// Runs the same voice-then-melody phase timeline as real playback, using
+// FALLBACK_VOICE_DURATION_SECONDS in place of a decoded buffer's duration, so
+// the visible timeline/progress/status stay meaningful and testable when real
+// audio can't run at all (see FALLBACK_VOICE_DURATION_SECONDS above).
+function startFallbackTimeline(callbacks: DemoAudioCallbacks): void {
+  const startedAtMs = Date.now();
+  const melodyPhaseDelaySeconds = FALLBACK_VOICE_DURATION_SECONDS + PAUSE_BETWEEN_SPEECH_AND_MELODY_SECONDS / 2;
+  const totalSeconds =
+    FALLBACK_VOICE_DURATION_SECONDS
+    + PAUSE_BETWEEN_SPEECH_AND_MELODY_SECONDS
+    + totalMelodyDurationSeconds()
+    + TAIL_SECONDS;
+
+  function stop(): void {
+    clearPendingTimeouts();
+    activeDemo = null;
+  }
+
+  activeDemo = {
+    analyser: null,
+    setGapFilters() {
+      // No real filter graph exists without an AudioContext; the spectrum's
+      // gap marking and status text are driven from selection state in
+      // main.ts, not from this stub.
+    },
+    setWet() {
+      // Nothing to route --- see setGapFilters above.
+    },
+    stop,
+    getProgress() {
+      if (totalSeconds <= 0) return 0;
+      const elapsedSeconds = (Date.now() - startedAtMs) / 1000;
+      return Math.min(1, Math.max(0, elapsedSeconds / totalSeconds));
+    },
+  };
+
+  callbacks.onPhaseChange?.("speech");
+  scheduleCallback(melodyPhaseDelaySeconds, () => {
+    if (activeDemo) callbacks.onPhaseChange?.("melody");
+  });
+  scheduleCallback(totalSeconds, () => {
+    if (activeDemo) {
+      stop();
+      callbacks.onEnded?.();
+    }
+  });
+}
+
 function buildFilterStage(filter: BiquadFilterNode, stage: PeakingFilterStage, time: number): void {
   filter.type = "peaking";
   filter.frequency.setValueAtTime(stage.frequencyHz, time);
@@ -117,6 +189,7 @@ export async function startDemo(
 
   const AudioContextConstructor = resolveAudioContextConstructor();
   if (!AudioContextConstructor) {
+    startFallbackTimeline(callbacks);
     callbacks.onError?.("Audio playback is not available in this browser.");
     return;
   }
@@ -129,6 +202,7 @@ export async function startDemo(
   try {
     voiceBuffer = await loadVoiceBuffer(context);
   } catch {
+    startFallbackTimeline(callbacks);
     callbacks.onError?.("Could not load the recorded voice clip.");
     return;
   }
@@ -198,8 +272,7 @@ export async function startDemo(
     }
   }
 
-  const melodyEnd = melodyStart + MELODY_NOTES[MELODY_NOTES.length - 1].startTimeSeconds
-    + MELODY_NOTES[MELODY_NOTES.length - 1].durationSeconds;
+  const melodyEnd = melodyStart + totalMelodyDurationSeconds();
 
   function cleanup(): void {
     clearPendingTimeouts();
@@ -241,6 +314,12 @@ export async function startDemo(
       wetGain.gain.linearRampToValueAtTime(wet ? 1 : 0, rampTime);
     },
     stop: cleanup,
+    getProgress() {
+      const totalSeconds = melodyEnd - now + TAIL_SECONDS;
+      if (totalSeconds <= 0) return 0;
+      const elapsedSeconds = context.currentTime - now;
+      return Math.min(1, Math.max(0, elapsedSeconds / totalSeconds));
+    },
   };
 
   callbacks.onPhaseChange?.("speech");

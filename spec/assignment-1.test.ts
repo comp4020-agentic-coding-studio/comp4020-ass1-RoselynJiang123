@@ -26,6 +26,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MAX_FREQUENCY_HZ, MIN_FREQUENCY_HZ, frequencyToSliderPosition, sliderPositionToFrequency } from "../cochlea";
 import { isToneActive } from "../audio";
 import { frequencyContext, frequencyToPercentFromBase } from "../frequency-context";
+import { FALLBACK_VOICE_DURATION_SECONDS } from "../demo";
+import { createGapSelectionFromFrequencies, formatFrequencyRangeHz } from "../gap";
+import { totalMelodyDurationSeconds } from "../melody";
 
 const SOURCE_HTML = readFileSync(resolve("index.html"), "utf8");
 const SOURCE_CSS = readFileSync(resolve("styles.css"), "utf8");
@@ -1812,12 +1815,60 @@ describe("Assignment 1: Hearing Is a Map, Not a Volume Knob", () => {
   });
 
   describe("Stage 3: Hear what the gap removes", () => {
+    // Fallback-timeline margins: jsdom has no Web Audio implementation, so
+    // demo.ts always runs its measured-duration fallback timeline
+    // (FALLBACK_VOICE_DURATION_SECONDS) rather than a real decoded buffer.
+    // These margins are generous enough to land safely inside each phase
+    // without needing demo.ts's private pause/tail constants.
+    const PAST_MELODY_PHASE_MS = (FALLBACK_VOICE_DURATION_SECONDS + 1) * 1000;
+    const PAST_PLAYBACK_END_MS = (FALLBACK_VOICE_DURATION_SECONDS + totalMelodyDurationSeconds() + 2) * 1000;
+
     function dispatchType(element: Element, type: string): void {
       element.dispatchEvent(new Event(type, { bubbles: true, cancelable: true }));
     }
 
-    function dispatchKey(element: Element, type: string, key: string): void {
-      element.dispatchEvent(new KeyboardEvent(type, { key, bubbles: true, cancelable: true }));
+    function dispatchKey(element: Element, type: string, key: string, extra: KeyboardEventInit = {}): void {
+      element.dispatchEvent(new KeyboardEvent(type, { key, bubbles: true, cancelable: true, ...extra }));
+    }
+
+    function playButtonEl(): HTMLButtonElement {
+      const button = document.querySelector<HTMLButtonElement>('[data-testid="demo-play"]');
+      expect(button, 'expected a [data-testid="demo-play"] element').not.toBeNull();
+      return button!;
+    }
+
+    function compareButtonEl(): HTMLButtonElement {
+      const button = document.querySelector<HTMLButtonElement>('[data-testid="gap-compare"]');
+      expect(button, 'expected a [data-testid="gap-compare"] element').not.toBeNull();
+      return button!;
+    }
+
+    function phaseStatusEl(): HTMLElement {
+      const el = document.querySelector('[data-testid="demo-phase-status"]');
+      expect(el, 'expected a [data-testid="demo-phase-status"] element').not.toBeNull();
+      return el as HTMLElement;
+    }
+
+    function routeStatusEl(): HTMLElement {
+      const el = document.querySelector('[data-testid="demo-route-status"]');
+      expect(el, 'expected a [data-testid="demo-route-status"] element').not.toBeNull();
+      return el as HTMLElement;
+    }
+
+    function timelineEl(): HTMLElement {
+      const el = document.querySelector<HTMLElement>('[data-testid="playback-timeline"]');
+      expect(el, 'expected a [data-testid="playback-timeline"] element').not.toBeNull();
+      return el!;
+    }
+
+    function progressEl(): HTMLProgressElement {
+      const el = document.querySelector<HTMLProgressElement>('[data-testid="playback-progress"]');
+      expect(el, 'expected a [data-testid="playback-progress"] element').not.toBeNull();
+      return el!;
+    }
+
+    function experienceStateAttr(): string | null {
+      return document.querySelector("main")?.getAttribute("data-experience-state") ?? null;
     }
 
     it("renders exactly 24 spectrum bars inside the map, in Greenwood order", async () => {
@@ -1867,65 +1918,351 @@ describe("Assignment 1: Hearing Is a Map, Not a Volume Knob", () => {
       expect(compareButton!.disabled).toBe(true);
     });
 
-    it("holding the compare control (pointer or keyboard) switches to 'Through the gap'; releasing restores 'Original'", async () => {
+    it("holding the compare control (pointer or keyboard) reports the actual gap range attenuated; releasing restores 'Original spectrum'", async () => {
       vi.resetModules();
       await import("../main");
       enterFind();
       setFrequency(1000);
 
       setGapFrequencies(2000, 4000);
+      const expectedGap = createGapSelectionFromFrequencies(2000, 4000);
+      const expectedHoldText = `Gap active · ${formatFrequencyRangeHz(expectedGap.lowFrequencyHz, expectedGap.highFrequencyHz)} attenuated`;
 
-      const playButton = document.querySelector<HTMLButtonElement>('[data-testid="demo-play"]');
-      const compareButton = document.querySelector<HTMLButtonElement>('[data-testid="gap-compare"]');
-      const routeStatus = document.querySelector('[data-testid="demo-route-status"]');
-      expect(playButton, 'expected a [data-testid="demo-play"] element').not.toBeNull();
-      expect(compareButton, 'expected a [data-testid="gap-compare"] element').not.toBeNull();
-      expect(routeStatus, 'expected a [data-testid="demo-route-status"] element').not.toBeNull();
+      const playButton = playButtonEl();
+      const compareButton = compareButtonEl();
+      const routeStatus = routeStatusEl();
 
-      playButton!.click();
-      expect(compareButton!.disabled).toBe(false);
-      expect(routeStatus!.textContent).toMatch(/Original/);
+      playButton.click();
+      expect(compareButton.disabled).toBe(false);
+      expect(routeStatus.textContent).toBe("Original spectrum");
 
-      dispatchType(compareButton!, "pointerdown");
-      expect(routeStatus!.textContent).toMatch(/Through the gap/);
-      expect(compareButton!.getAttribute("aria-pressed")).toBe("true");
+      dispatchType(compareButton, "pointerdown");
+      expect(routeStatus.textContent).toBe(expectedHoldText);
+      expect(compareButton.getAttribute("aria-pressed")).toBe("true");
 
-      dispatchType(compareButton!, "pointerup");
-      expect(routeStatus!.textContent).toMatch(/Original/);
-      expect(compareButton!.getAttribute("aria-pressed")).toBe("false");
+      dispatchType(compareButton, "pointerup");
+      expect(routeStatus.textContent).toBe("Original spectrum");
+      expect(compareButton.getAttribute("aria-pressed")).toBe("false");
 
-      dispatchKey(compareButton!, "keydown", "Enter");
-      expect(routeStatus!.textContent).toMatch(/Through the gap/);
+      dispatchKey(compareButton, "keydown", "Enter");
+      expect(routeStatus.textContent).toBe(expectedHoldText);
+      expect(compareButton.getAttribute("aria-pressed")).toBe("true");
 
-      dispatchKey(compareButton!, "keyup", "Enter");
-      expect(routeStatus!.textContent).toMatch(/Original/);
+      dispatchKey(compareButton, "keyup", "Enter");
+      expect(routeStatus.textContent).toBe("Original spectrum");
 
-      dispatchKey(compareButton!, "keydown", " ");
-      expect(routeStatus!.textContent).toMatch(/Through the gap/);
+      dispatchKey(compareButton, "keydown", " ");
+      expect(routeStatus.textContent).toBe(expectedHoldText);
 
-      dispatchKey(compareButton!, "keyup", " ");
-      expect(routeStatus!.textContent).toMatch(/Original/);
+      dispatchKey(compareButton, "keyup", " ");
+      expect(routeStatus.textContent).toBe("Original spectrum");
     });
 
-    it("losing the hold (pointercancel, pointerleave or blur) restores 'Original'", async () => {
+    it("a repeated keydown (OS key-repeat) while already held does not re-toggle or duplicate the hold", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterFind();
+      setFrequency(1000);
+      setGapFrequencies(2000, 4000);
+
+      const playButton = playButtonEl();
+      const compareButton = compareButtonEl();
+      const routeStatus = routeStatusEl();
+      playButton.click();
+
+      dispatchKey(compareButton, "keydown", " ");
+      const heldText = routeStatus.textContent;
+      expect(heldText).toMatch(/^Gap active · .+ attenuated$/);
+
+      dispatchKey(compareButton, "keydown", " ", { repeat: true });
+      dispatchKey(compareButton, "keydown", " ", { repeat: true });
+      expect(routeStatus.textContent).toBe(heldText);
+      expect(compareButton.getAttribute("aria-pressed")).toBe("true");
+
+      dispatchKey(compareButton, "keyup", " ");
+      expect(routeStatus.textContent).toBe("Original spectrum");
+    });
+
+    it("losing the hold (pointercancel, pointerleave, lostpointercapture or blur) restores 'Original spectrum'", async () => {
       vi.resetModules();
       await import("../main");
       enterFind();
       setFrequency(1000);
 
       setGapFrequencies(2000, 4000);
-      const playButton = document.querySelector<HTMLButtonElement>('[data-testid="demo-play"]');
-      const compareButton = document.querySelector<HTMLButtonElement>('[data-testid="gap-compare"]');
-      const routeStatus = document.querySelector('[data-testid="demo-route-status"]');
-      playButton!.click();
+      const playButton = playButtonEl();
+      const compareButton = compareButtonEl();
+      const routeStatus = routeStatusEl();
+      playButton.click();
 
-      for (const releaseType of ["pointercancel", "pointerleave", "blur"]) {
-        dispatchType(compareButton!, "pointerdown");
-        expect(routeStatus!.textContent).toMatch(/Through the gap/);
-        dispatchType(compareButton!, releaseType);
-        expect(routeStatus!.textContent).toMatch(/Original/);
-        expect(compareButton!.getAttribute("aria-pressed")).toBe("false");
+      for (const releaseType of ["pointercancel", "pointerleave", "lostpointercapture", "blur"]) {
+        dispatchType(compareButton, "pointerdown");
+        expect(routeStatus.textContent).toMatch(/^Gap active · .+ attenuated$/);
+        dispatchType(compareButton, releaseType);
+        expect(routeStatus.textContent).toBe("Original spectrum");
+        expect(compareButton.getAttribute("aria-pressed")).toBe("false");
       }
+    });
+
+    it("losing page visibility while held restores 'Original spectrum'", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterFind();
+      setFrequency(1000);
+      setGapFrequencies(2000, 4000);
+
+      const playButton = playButtonEl();
+      const compareButton = compareButtonEl();
+      const routeStatus = routeStatusEl();
+      playButton.click();
+
+      dispatchType(compareButton, "pointerdown");
+      expect(routeStatus.textContent).toMatch(/^Gap active · .+ attenuated$/);
+
+      Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
+      document.dispatchEvent(new Event("visibilitychange"));
+
+      expect(routeStatus.textContent).toBe("Original spectrum");
+      expect(compareButton.getAttribute("aria-pressed")).toBe("false");
+
+      Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true });
+    });
+
+    it("names the primary control 'Play speech + melody', switching to 'Stop playback' while active", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterFind();
+      setFrequency(1000);
+
+      const playButton = playButtonEl();
+      expect(playButton.textContent?.trim()).toBe("Play speech + melody");
+
+      playButton.click();
+      expect(playButton.textContent?.trim()).toBe("Stop playback");
+
+      playButton.click();
+      expect(playButton.textContent?.trim()).toBe("Play speech + melody");
+    });
+
+    it("labels the two-part timeline and keeps a persistent clarification that the voice does not become the melody", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterFind();
+      setFrequency(1000);
+
+      const timeline = timelineEl();
+      expect(timeline.textContent).toMatch(/Part 1.*Your recorded voice/);
+      expect(timeline.textContent).toMatch(/Part 2.*Code-synthesised melody/);
+
+      const clarification = document.body.textContent ?? "";
+      expect(clarification).toMatch(/the voice does not turn into the melody/i);
+      expect(document.querySelector(".model-limits")?.textContent ?? "").not.toMatch(
+        /the voice does not turn into the melody/i,
+      );
+    });
+
+    it("starts with a non-empty 'ready' status before any playback", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterFind();
+      setFrequency(1000);
+
+      expect(timelineEl().dataset.playbackPart).toBe("ready");
+      expect(phaseStatusEl().textContent?.trim().length).toBeGreaterThan(0);
+      expect(phaseStatusEl().textContent).toMatch(/Ready/);
+      expect(routeStatusEl().textContent).toBe("Original spectrum");
+    });
+
+    it("never advances the playback timeline before Play is pressed (no autoplay)", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterFind();
+      setFrequency(1000);
+      setGapFrequencies(2000, 4000);
+
+      expect(timelineEl().dataset.playbackPart).toBe("ready");
+      expect(isToneActive()).toBe(false);
+    });
+
+    it("begins playback with the voice, naming the melody as next, then moves to the melody without claiming transformation", async () => {
+      vi.useFakeTimers();
+      try {
+        vi.resetModules();
+        await import("../main");
+        enterFind();
+        setFrequency(1000);
+
+        const playButton = playButtonEl();
+        playButton.click();
+
+        expect(timelineEl().dataset.playbackPart).toBe("voice");
+        expect(phaseStatusEl().textContent).toMatch(/Now playing: Your recorded voice/);
+        expect(phaseStatusEl().textContent).toMatch(/Next: code-synthesised melody/i);
+
+        vi.advanceTimersByTime(PAST_MELODY_PHASE_MS);
+
+        expect(timelineEl().dataset.playbackPart).toBe("melody");
+        expect(phaseStatusEl().textContent).toMatch(/Now playing: Code-synthesised melody/);
+        expect(phaseStatusEl().textContent).not.toMatch(/turns into|becomes|transform/i);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("reaches a meaningful completed state and allows playing again, without leaving playback running", async () => {
+      vi.useFakeTimers();
+      try {
+        vi.resetModules();
+        await import("../main");
+        enterFind();
+        setFrequency(1000);
+
+        const playButton = playButtonEl();
+        playButton.click();
+        vi.advanceTimersByTime(PAST_PLAYBACK_END_MS);
+
+        expect(timelineEl().dataset.playbackPart).toBe("complete");
+        expect(phaseStatusEl().textContent).toMatch(/Playback complete/);
+        expect(playButton.textContent?.trim()).toBe("Play speech + melody");
+        expect(progressEl().value).toBe(100);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("stopping mid-playback (no overlapping playback from repeated Play clicks) returns to the ready state", async () => {
+      vi.useFakeTimers();
+      try {
+        vi.resetModules();
+        await import("../main");
+        enterFind();
+        setFrequency(1000);
+
+        const playButton = playButtonEl();
+        playButton.click();
+        expect(timelineEl().dataset.playbackPart).toBe("voice");
+
+        playButton.click();
+        expect(timelineEl().dataset.playbackPart).toBe("ready");
+        expect(playButton.textContent?.trim()).toBe("Play speech + melody");
+
+        vi.advanceTimersByTime(PAST_PLAYBACK_END_MS);
+        expect(timelineEl().dataset.playbackPart).toBe("ready");
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("keeps playback progress within 0..100 and in step with the active timeline segment", async () => {
+      vi.useFakeTimers();
+      try {
+        vi.resetModules();
+        await import("../main");
+        enterFind();
+        setFrequency(1000);
+
+        const playButton = playButtonEl();
+        const progress = progressEl();
+        playButton.click();
+        expect(progress.value).toBeGreaterThanOrEqual(0);
+        expect(progress.value).toBeLessThanOrEqual(100);
+
+        vi.advanceTimersByTime(PAST_MELODY_PHASE_MS);
+        expect(timelineEl().dataset.playbackPart).toBe("melody");
+        expect(progress.value).toBeGreaterThanOrEqual(0);
+        expect(progress.value).toBeLessThanOrEqual(100);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("stopping playback resets progress without touching the guided experience state", async () => {
+      vi.useFakeTimers();
+      try {
+        vi.resetModules();
+        await import("../main");
+        enterFind();
+        setFrequency(1000);
+        const stateBefore = experienceStateAttr();
+
+        const playButton = playButtonEl();
+        const progress = progressEl();
+        playButton.click();
+        vi.advanceTimersByTime(PAST_MELODY_PHASE_MS);
+
+        playButton.click();
+
+        expect(progress.value).toBe(0);
+        expect(experienceStateAttr()).toBe(stateBefore);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("holding compare during playback does not restart the timeline, change the frequency, or edit the committed gap", async () => {
+      vi.useFakeTimers();
+      try {
+        vi.resetModules();
+        await import("../main");
+        enterFind();
+        setFrequency(1000);
+        setGapFrequencies(2000, 4000);
+        const widthBefore = gapSelectionWidth();
+        const frequencyBefore = currentFrequencyHz();
+
+        const playButton = playButtonEl();
+        const compareButton = compareButtonEl();
+        playButton.click();
+        vi.advanceTimersByTime(PAST_MELODY_PHASE_MS);
+        expect(timelineEl().dataset.playbackPart).toBe("melody");
+
+        dispatchType(compareButton, "pointerdown");
+        expect(timelineEl().dataset.playbackPart).toBe("melody");
+        dispatchType(compareButton, "pointerup");
+
+        expect(gapSelectionWidth()).toBeCloseTo(widthBefore, 5);
+        expect(currentFrequencyHz()).toBe(frequencyBefore);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("completing playback while held restores 'Original spectrum' and a released control", async () => {
+      vi.useFakeTimers();
+      try {
+        vi.resetModules();
+        await import("../main");
+        enterFind();
+        setFrequency(1000);
+        setGapFrequencies(2000, 4000);
+
+        const playButton = playButtonEl();
+        const compareButton = compareButtonEl();
+        const routeStatus = routeStatusEl();
+        playButton.click();
+        dispatchType(compareButton, "pointerdown");
+        expect(routeStatus.textContent).toMatch(/^Gap active · .+ attenuated$/);
+
+        vi.advanceTimersByTime(PAST_PLAYBACK_END_MS);
+
+        expect(routeStatus.textContent).toBe("Original spectrum");
+        expect(compareButton.getAttribute("aria-pressed")).toBe("false");
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("gives every Stage 3 status element a non-empty accessible name or text", async () => {
+      vi.resetModules();
+      await import("../main");
+      enterFind();
+      setFrequency(1000);
+
+      expect(phaseStatusEl().textContent?.trim().length).toBeGreaterThan(0);
+      expect(routeStatusEl().textContent?.trim().length).toBeGreaterThan(0);
+      expect(playButtonEl().textContent?.trim().length).toBeGreaterThan(0);
+      expect(compareButtonEl().getAttribute("aria-label")).toBe("Hold to apply the selected frequency gap");
+      expect(compareButtonEl().textContent?.trim()).toBe("Hold for gap");
     });
   });
 

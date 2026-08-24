@@ -139,6 +139,21 @@ export function isDisplayPositionInGap(displayPosition: number, gap: GapSelectio
   return clamped >= gap.lowDisplayPosition && clamped <= gap.highDisplayPosition;
 }
 
+// One readable-range formatter shared by every place Stage 2/3 displays a
+// gap's frequency bounds, so units and rounding never drift between them.
+// Unit is chosen from the upper bound alone, so a single range is never
+// rendered with mixed units.
+export function formatFrequencyRangeHz(lowFrequencyHz: number, highFrequencyHz: number): string {
+  assertFinite(lowFrequencyHz, "lowFrequencyHz");
+  assertFinite(highFrequencyHz, "highFrequencyHz");
+  if (highFrequencyHz < 1000) {
+    return `${Math.round(lowFrequencyHz)}–${Math.round(highFrequencyHz)} Hz`;
+  }
+  const lowKHz = (lowFrequencyHz / 1000).toFixed(1);
+  const highKHz = (highFrequencyHz / 1000).toFixed(1);
+  return `${lowKHz}–${highKHz} kHz`;
+}
+
 // Two cascaded peaking filters at a fixed -12 dB each (-24 dB total): the
 // attenuation depth is a constant of this prototype, not derived from the
 // selection, so only centre frequency and Q vary per gap.

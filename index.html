@@ -346,16 +346,54 @@
           The 24 bars on the map above are a schematic ERB-grouped spectrum, not individual
           auditory filters.
         </p>
+
+        <ol
+          class="playback-timeline"
+          data-testid="playback-timeline"
+          data-playback-part="ready"
+          aria-label="Playback sequence"
+        >
+          <li data-testid="playback-part-voice" class="playback-timeline-part">
+            <span class="playback-timeline-marker" aria-hidden="true"></span>
+            Part 1 &middot; Your recorded voice
+          </li>
+          <li data-testid="playback-part-melody" class="playback-timeline-part">
+            <span class="playback-timeline-marker" aria-hidden="true"></span>
+            Part 2 &middot; Code-synthesised melody
+          </li>
+        </ol>
+        <p class="playback-clarification">
+          These are two examples played in sequence&mdash;the voice does not turn into the melody.
+        </p>
+        <progress
+          class="playback-progress"
+          data-testid="playback-progress"
+          aria-label="Playback progress"
+          value="0"
+          max="100"
+        ></progress>
+
         <div class="demo-status-row">
-          <output data-testid="demo-phase-status" aria-live="polite" class="demo-status"></output>
+          <output
+            data-testid="demo-phase-status"
+            aria-live="polite"
+            class="demo-status"
+          >Ready &middot; Your recorded voice plays first, followed by a code-synthesised melody.</output
+          >
           <output data-testid="demo-route-status" aria-live="polite" class="demo-status"
-            >Original</output
+            >Original spectrum</output
           >
         </div>
         <div class="demo-buttons">
-          <button type="button" data-testid="demo-play">Play example</button>
-          <button type="button" data-testid="gap-compare" aria-pressed="false" disabled>
-            Hold to hear through the gap
+          <button type="button" data-testid="demo-play">Play speech + melody</button>
+          <button
+            type="button"
+            data-testid="gap-compare"
+            aria-pressed="false"
+            aria-label="Hold to apply the selected frequency gap"
+            disabled
+          >
+            Hold for gap
           </button>
         </div>
         <p class="demo-error" data-testid="demo-error" role="alert" hidden></p>
