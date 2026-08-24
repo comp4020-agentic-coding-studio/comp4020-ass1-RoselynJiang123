@@ -1,85 +1,21 @@
-# Process overview
-
-<!-- TEMPLATE: this file is a shape to fill in, not a form. Replace everything
-     in it with your own overview, and delete this comment — `pnpm
-     check:evidence` will remind you if it's still here. -->
-
-A reading-guide to how the work came together --- a map to your process, not an
-essay about it. Markers read this file and follow its citations; they don't
-trawl the repo for evidence you didn't point at, so if a moment mattered, cite
-it.
-
-This file is the shape; the course site's
-[assessment page](https://comp.anu.edu.au/courses/comp4020-agentic-coding-studio/topics/assessment/#what-you-submit)
-is the requirement, and its
-[word counts](https://comp.anu.edu.au/courses/comp4020-agentic-coding-studio/topics/assessment/#word-counts)
-cover every deliverable.
+# Process — *Hearing Is a Map, Not a Volume Knob*
 
 ## What I built
 
-One paragraph: the thing, and the idea behind it.
+I built a static interactive explainer showing that the cochlea represents frequency as place rather than treating hearing as one volume control. A visitor first follows sound into the cochlea, then uses one persistent map to locate a frequency, remove a continuous region and compare what that gap attenuates. The visuals, generated audio and spectrum all express the same causal chain: frequency → cochlear place → local damage → missing frequency detail. It is deliberately a simplified teaching model, not a hearing test or a simulation of one person's hearing.
 
-## The moments that mattered
+## 1. Writing the contract before drawing the cochlea
 
-Three or four for an assignment; fewer is fine for a weekly prototype. Keep the
-list short so each moment has room to do all four jobs:
+The first important decision happened before any feature code. A reversed cochlear map could still look convincing, so I did not begin by asking the agent for a polished visual. I expanded the bare `CLAUDE.md` into a project contract: one explanatory claim, one coordinate system, Greenwood mathematics, cautious medical wording, optional audio and explicit exclusions. I then asked for pure `placeToFrequency()` and `frequencyToPlace()` functions with numeric-anchor tests. One documented anchor was corrected when the implementation and test exposed the mismatch. I knew the foundation was reliable because the mathematical functions, documentation and tests agreed before Stage 1 consumed them; later visuals did not need a second mapping convention. Evidence: [5a50f6e...ac5a017](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-RoselynJiang123/compare/5a50f6e...ac5a017).
 
-1. **what happened** --- the problem, or the thing that went wrong
-2. **what you did instead of the obvious thing** --- the call you made, and why
-   it beat the obvious one
-3. **how you knew it was right** --- the check you ran, the viewport you looked
-   at, what you read before accepting the diff
-4. **the citation** --- a commit or commit range, a `CLAUDE.md` change, a check
-   that went from red to green, a prompt paired with the commit it produced
+## 2. Making three stages prove one claim
 
-Jobs 2 and 3 are the ones the repo can't tell a reader on its own, so they're
-where the marks are. The strongest moments are the ones where a correction
-landed in the **harness** --- the standards and checks your work has to satisfy
---- rather than in a retry: a rule added to `CLAUDE.md`, a check wired up, an
-attempt thrown away. Retrying until it passes is the routine case, and changing
-what the work runs against is the skilled one.
+The obvious implementation was three impressive but separate demonstrations. Instead, I built outward from the tested mapping and kept the explanation mechanically connected. Stage 1 placed the slider, travelling-wave peak and hair-cell response on the same unfolded map. Stage 2 added a pure gap model and routed the existing tone through its filters. Stage 3 reused that selected interval for both a 24-band spectrum and a momentary original/gap audio comparison. Audio synthesis, melody, filtering and spectrum logic were separated into testable modules rather than embedded in presentation code. The black-box specification checked the visible causal sequence, while unit tests checked the transformations underneath. I knew the idea held together because changing one gap drove both the visual attenuation and the A/B audio path. Evidence: [370a5e7...4c92ec9](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-RoselynJiang123/compare/370a5e7...4c92ec9). However, this ultimately led to issues. Although the three modules functioned smoothly, the interface readability was extremely poor, causing significant difficulties for subsequent modifications.
 
-Cite each moment as a link whose text is the commit hash or range and whose
-target is this repo's commit or compare URL, so a reader clicks straight to the
-evidence:
+## 3. Orienting a novice without blocking the interaction
 
-- one commit: [`a1b2c3d`](https://github.com/YOUR-ORG/YOUR-REPO/commit/a1b2c3d)
-- a range:
-  [`a1b2c3d...e4f5a6b`](https://github.com/YOUR-ORG/YOUR-REPO/compare/a1b2c3d...e4f5a6b)
+Once the core worked, the opening still assumed that visitors already recognised the cochlea. Adding a long anatomy explanation would have delayed the interaction, so I changed the harness first: `CLAUDE.md` gained explicit `orientation → cochlea-focus → find` states, a Skip route, accessibility requirements and local-asset provenance rules. I then implemented the state machine before completing the visuals, followed by an accessible ear hotspot, two original schematic SVGs and the unfold connection to the persistent map. This sequence made the introduction optional rather than a new mandatory lesson. Transition tests proved that resize, animation completion and unrelated events could not advance state; existing Stage 1–3 tests still passed through the new entrance. Evidence: [828a491...c3883d4](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-RoselynJiang123/compare/828a491...c3883d4).
 
-To pair a prompt with the commit it produced, quote the prompt (curated, not a
-full transcript) next to the citation:
+## 4. Replacing exposed features with a guided explanation
 
-> the prompt, verbatim
-
-Screenshots are welcome where one carries the verification better than a
-sentence does. Commit the file to this repo and link it with a **relative**
-path, which is what makes it render on GitHub: `![alt text](docs/before.png)`.
-Images don't count towards the word count and don't replace the citation.
-
-### A worked moment, for shape
-
-Delete this section along with the rest of the boilerplate --- it's here to show
-the four jobs in one paragraph, not to be imitated in content.
-
-> The date formatter kept coming back with `toLocaleDateString()` and no locale
-> argument, so the same build rendered differently on my machine and in CI. I'd
-> already re-prompted it twice, which fixed the line but not the habit, so the
-> third time I put the rule in `CLAUDE.md` instead
-> ([`3f9ac21`](https://github.com/YOUR-ORG/YOUR-REPO/commit/3f9ac21)) and added
-> a spec test that fails on a bare `toLocaleDateString`. That's what told me it
-> had actually taken: the test went red against the old code and green against
-> the new, and the next two features it wrote passed it without prompting
-> ([`3f9ac21...b7e0d14`](https://github.com/YOUR-ORG/YOUR-REPO/compare/3f9ac21...b7e0d14)).
-
-## Before you ship
-
-`pnpm check:evidence` verifies your citations resolve to real commits, that the
-current reflection entry is in `reflections/`, and that your `CLAUDE.md` is
-there --- before a marker ever opens the file. It checks that your map is
-traceable, not that it is good: the marker judges whether your small,
-deliberately chosen set of moments shows real judgement and reflection. A green
-check is not a substitute for that curation.
-
-Images are deliberately not checked, because whether one renders is visible the
-moment you look. Open this file on GitHub and look at it before you ship.
+The final correction was about comprehension rather than adding capability. Showing every stage at once made the page read like a technical form, and "Play example" did not explain why voice and melody followed each other. I introduced progressive disclosure, then unified map input across explicit explore, gap and compare modes so a Stage 2 drag could not also change frequency. `frequencyContext()` added approximate familiar-sound anchors and a Greenwood-derived percentage from the base. Finally, the comparison became a two-part voice/melody timeline with real gap-range status and a measured fallback clock for test environments without Web Audio. Tests covered mode isolation, frequency-label boundaries and timeline progress without weakening earlier assertions. So the correction was durable because the explanation remained testable even when its audio engine was unavailable. Evidence: [b6ec9de...3add1a7](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-RoselynJiang123/compare/b6ec9de...3add1a7).
